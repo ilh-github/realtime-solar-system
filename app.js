@@ -7347,8 +7347,13 @@
     jd = clamp(nextJd, J2000 - 36525, J2000 + 36525);
     playing = false;
     $("playBtn").textContent = "▶";
-    syncDateInput(true);
-    if (closePanel) setEphemerisPanelVisible(false);
+    // Native datetime-local pickers emit several input events while the user
+    // changes year/month/day/hour/minute. Do not write back during that
+    // sequence, otherwise the browser can overwrite the segment just chosen.
+    if (closePanel) {
+      syncDateInput(true);
+      setEphemerisPanelVisible(false);
+    }
   }
 
   /* ---------------- UI ---------------- */
