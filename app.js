@@ -8068,11 +8068,12 @@
     buildBodies();
     setupUi();
     updateSystem();
-    setFocus("Earth", true);
-    // 初始给一个纵览视角再聚焦地球
-    camera.position.set(scenePos.Earth[0], scenePos.Earth[1] - 26, scenePos.Earth[2] + 13);
-    controls.target.set(...scenePos.Earth);
-    setFocus("Earth", false);
+    // Initial camera and coordinate origin must describe the same reference frame.
+    const initialFocus = referenceAnchor();
+    setFocus(initialFocus, true);
+    camera.position.set(scenePos[initialFocus][0], scenePos[initialFocus][1] - 26, scenePos[initialFocus][2] + 13);
+    controls.target.set(...scenePos[initialFocus]);
+    setFocus(initialFocus, false);
     if (reducedMotion) {
       playing = false;
       $("playBtn").textContent = "▶";
