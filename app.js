@@ -7339,7 +7339,7 @@
     panel.classList.toggle("show", show);
     document.body.classList.toggle("ephemeris-open", show);
   }
-  function applyDateInput() {
+  function applyDateInput(closePanel = true) {
     const input = document.getElementById("datetimeInput");
     const nextJd = input ? dateInputToJd(input.value) : null;
     if (!Number.isFinite(nextJd)) return;
@@ -7348,7 +7348,7 @@
     playing = false;
     $("playBtn").textContent = "▶";
     syncDateInput(true);
-    setEphemerisPanelVisible(false);
+    if (closePanel) setEphemerisPanelVisible(false);
   }
 
   /* ---------------- UI ---------------- */
@@ -7514,6 +7514,8 @@
     });
     $("ephemerisClose").addEventListener("click", () => setEphemerisPanelVisible(false));
     $("applyDateBtn").addEventListener("click", applyDateInput);
+    $("datetimeInput").addEventListener("input", () => applyDateInput(false));
+    $("datetimeInput").addEventListener("change", () => applyDateInput(false));
     $("datetimeInput").addEventListener("keydown", (event) => {
       if (event.key === "Enter") { event.preventDefault(); applyDateInput(); }
     });
