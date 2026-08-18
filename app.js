@@ -3179,7 +3179,7 @@
         if (ev.focus === "Apophis") award("apophis");
         jd = ev.jd;
         playing = false;
-        $("playBtn").textContent = "▶";
+        $("playBtn").textContent = "播放";
         stopTour();
         setFocus(ev.focus, false);
       });
@@ -4630,7 +4630,7 @@
     /* 时间主权: 发射 8 分钟的节奏由剧场独占(压缩 12×), 全局挡位暂停; 退场恢复(阶段38 用户实测: 天/秒挡冲垮发射细节) */
     LNCH._tSave = { playing, dps: daysPerSecond };
     playing = false;
-    $("playBtn").textContent = "▶";
+    $("playBtn").textContent = "播放";
     if (bodyByName.Earth.atmoMesh) bodyByName.Earth.atmoMesh.visible = false;   // 大气壳内视角曝白, 剧场内隐(阶段38)
     LNCH.failAt = (cfg0 && cfg0.historical && LNCH.cfg.failT) ? LNCH.cfg.failT : 0;
     LNCH.failed = 0;
@@ -4651,7 +4651,7 @@
       }
       LNCH.table = ascentTable(LNCH.cfg.phys);
       playing = false;
-      $("playBtn").textContent = "▶";
+      $("playBtn").textContent = "播放";
       animateScaleTo(0);
       setFocus("Earth", true);
       LNCH.savedNear = camera.near;
@@ -4684,7 +4684,7 @@
     if (LNCH._tSave) {
       playing = LNCH._tSave.playing;
       daysPerSecond = LNCH._tSave.dps;
-      $("playBtn").textContent = playing ? "⏸" : "▶";
+      $("playBtn").textContent = playing ? "暂停" : "播放";
       if (window.__setSpeed) window.__setSpeed(daysPerSecond, playing);
       LNCH._tSave = null;
     }
@@ -5069,7 +5069,7 @@
     if (stars3D) { stars3D = false; $("cosmoBtn").classList.remove("active"); $("cosmoHint").classList.remove("show"); }
     jd = sc.jd;
     playing = false;
-    $("playBtn").textContent = "▶";
+    $("playBtn").textContent = "播放";
     if (sc.scale !== undefined) animateScaleTo(sc.scale);
     setFocus(sc.focus, false);
   }
@@ -6171,8 +6171,8 @@
     renderAch();
   }
   const MISSIONS = [
-    { ach: "eclipse", t: "追一场日全食(2027-08-02)", go: () => { jd = 2461624.5; playing = false; $("playBtn").textContent = "▶"; setFocus("Earth", false); scanAstroEvents(); } },
-    { ach: "blood_moon", t: "看一场血月(2026-03-03)", go: () => { jd = 2461102.5; playing = false; $("playBtn").textContent = "▶"; setFocus("Moon", false); scanAstroEvents(); } },
+    { ach: "eclipse", t: "追一场日全食(2027-08-02)", go: () => { jd = 2461624.5; playing = false; $("playBtn").textContent = "播放"; setFocus("Earth", false); scanAstroEvents(); } },
+    { ach: "blood_moon", t: "看一场血月(2026-03-03)", go: () => { jd = 2461102.5; playing = false; $("playBtn").textContent = "播放"; setFocus("Moon", false); scanAstroEvents(); } },
     { ach: "star_fly", t: "飞临织女星", go: () => { const k = namedStars.find((x) => x.cn === "织女星"); if (k) flyToStar(k); } },
     { ach: "replay_v2", t: "看完旅行者2号大巡游", go: () => startReplay("Voyager2") },
     { ach: "hohmann3", t: "霍曼挑战三星命中", go: () => { jd = nextHohmannWindow(jd + 2); const plan = hohmannPlan(jd); $("dvSlider").value = clamp(plan.dv, 2.5, 4.5).toFixed(2); $("dvVal").textContent = Number($("dvSlider").value).toFixed(2); } },
@@ -6240,7 +6240,7 @@
         stars3D = true;
         $("cosmoBtn").classList.add("active");
       }
-      if (p.get("pause") === "1") { playing = false; $("playBtn").textContent = "▶"; }
+      if (p.get("pause") === "1") { playing = false; $("playBtn").textContent = "播放"; }
       const f = p.get("f");
       updateSystem();
       if (f && scenePos[f]) setFocus(f, true);
@@ -6672,9 +6672,9 @@
     replaySeen[name] = true;
     if (replaySeen.Voyager1 && replaySeen.Voyager2 && replaySeen.NewHorizons) award("replay_all");
     timeDirection = 1;
-    $("dirBtn").textContent = "▶";
+    $("dirBtn").textContent = "正向";
     playing = true;
-    $("playBtn").textContent = "⏸";
+    $("playBtn").textContent = "暂停";
     animateScaleTo(0);            // 真实尺度上回放
     vgCraftName = name;
     $("vgTitle").textContent = `${craftByName[name].cn} · 日心速度曲线`;
@@ -7346,7 +7346,7 @@
     if (deepTime && setDeepTimeRef) setDeepTimeRef(false);
     jd = clamp(nextJd, J2000 - 36525, J2000 + 36525);
     playing = false;
-    $("playBtn").textContent = "▶";
+    $("playBtn").textContent = "播放";
     // Native datetime-local pickers emit several input events while the user
     // changes year/month/day/hour/minute. Do not write back during that
     // sequence, otherwise the browser can overwrite the segment just chosen.
@@ -7555,7 +7555,7 @@
     $("tourBtn").addEventListener("click", () => { tour ? stopTour() : startTour(); });
     window.__setSpeed = (v, play) => {   // 程序化设挡: 剧场/任务链节奏管理
       daysPerSecond = v;
-      if (play !== undefined) { playing = play; $("playBtn").textContent = play ? "⏸" : "▶"; }
+      if (play !== undefined) { playing = play; $("playBtn").textContent = play ? "暂停" : "播放"; }
       for (const b of $("speedGroup").children) b.classList.toggle("active", Number(b.dataset.v) === v);
     };
     // 速度按钮(深时挡位追加 百年/千年每秒)
@@ -7626,7 +7626,7 @@
     $("playBtn").addEventListener("click", togglePlay);
     $("dirBtn").addEventListener("click", () => {
       timeDirection *= -1;
-      $("dirBtn").textContent = timeDirection > 0 ? "▶" : "◀";
+      $("dirBtn").textContent = timeDirection > 0 ? "正向" : "反向";
     });
     $("resetBtn").addEventListener("click", () => { jd = J2000; });
     $("todayBtn").addEventListener("click", () => { jd = 2440587.5 + Date.now() / 86400000; });
@@ -7906,7 +7906,7 @@
   }
   function togglePlay() {
     playing = !playing;
-    $("playBtn").textContent = playing ? "⏸" : "▶";
+    $("playBtn").textContent = playing ? "暂停" : "播放";
   }
   let scaleAnim = null;
   function animateScaleTo(target) {
@@ -8076,7 +8076,7 @@
     setFocus(initialFocus, false);
     if (reducedMotion) {
       playing = false;
-      $("playBtn").textContent = "▶";
+      $("playBtn").textContent = "播放";
       if (bloomPass) bloomPass.strength *= 0.45;
     }
     if (window.innerWidth < 821) $("panel").classList.add("collapsed");   // 小屏默认收起面板

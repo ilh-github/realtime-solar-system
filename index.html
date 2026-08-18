@@ -68,6 +68,7 @@
     #frameGroup button:hover, #ephemerisFrameGroup button:hover { transform: none; background: rgba(110, 168, 255, .14); color: var(--text); }
     #frameGroup button.active, #ephemerisFrameGroup button.active { background: rgba(110, 168, 255, .76); color: #fff; box-shadow: 0 0 12px rgba(110, 168, 255, .24); }
     #datePickerBtn { padding-inline: 9px; }
+    #dirBtn, #playBtn { width: auto; min-width: 52px; padding-inline: 9px; }
     #ephemerisPanel {
       position: fixed; top: 68px; left: 50%; z-index: 25; width: 316px; padding: 14px;
       display: none; flex-direction: column; gap: 12px;
@@ -615,8 +616,8 @@
       <button id="datePickerBtn" title="输入公历时间" aria-label="输入公历时间">时间</button>
       <div class="divider"></div>
       <div class="tgroup">
-      <button id="dirBtn" class="icon" title="时间方向" aria-label="切换时间方向">▶</button>
-      <button id="playBtn" class="icon" title="播放/暂停" aria-label="播放或暂停时间">⏸</button>
+      <button id="dirBtn" title="时间方向" aria-label="切换时间方向">正向</button>
+      <button id="playBtn" title="播放/暂停" aria-label="播放或暂停时间">暂停</button>
       </div>
     <div class="divider"></div>
     <div class="tgroup" id="speedGroup"></div>
@@ -800,7 +801,7 @@
   <script src="./solar_system_data.js?v=51"></script>
   <script src="./visitors_data.js?v=51"></script>
   <script src="./glb_parser.js?v=51"></script>
-  <script src="./app.js?v=56"></script>
+  <script src="./app.js?v=57"></script>
   <script>if ("serviceWorker" in navigator && location.protocol.indexOf("http") === 0) navigator.serviceWorker.register("./sw.js").catch(function () {});</script>
 </body>
 </html>
