@@ -57,6 +57,18 @@ python3 -m http.server 8000
 
 Service Worker 只在 `http(s)` 和 `localhost` 下注册——浏览器安全策略不允许 `file://` 页面注册 SW。这不是故障，页面功能不受影响。
 
+### 一键打包源码
+
+```bash
+./package-source.sh
+```
+
+压缩包会生成在 `dist/`，解压后根目录的 `index.html` 可直接双击运行。也可以指定输出目录：
+
+```bash
+./package-source.sh /path/to/output
+```
+
 ## 部署
 
 任何静态托管都能直接放：把仓库内容传到站点根目录即可。
