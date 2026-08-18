@@ -189,6 +189,7 @@
   /* ---------------- 状态 ---------------- */
   let jd = J2000;
   let anchorName = "Sun";
+  let referenceFrame = "heliocentric";  // 坐标原点与镜头聚焦解耦: 日心 / 地心
   let selectedName = "Earth";
   let scaleBlend = 1.0;
   let daysPerSecond = 1.0;
@@ -201,6 +202,10 @@
   const worldKm = {};      // 天体日心坐标(km)
   const scenePos = {};     // 场景坐标(BU)
   const sceneRadius = {};  // 场景半径(BU)
+
+  function referenceAnchor() {
+    return referenceFrame === "geocentric" ? "Earth" : "Sun";
+  }
 
   /* ---------------- 渲染器与场景 ---------------- */
   const renderer = new THREE.WebGLRenderer({ antialias: true, logarithmicDepthBuffer: true });
@@ -2664,8 +2669,73 @@
     sat.orbitLine.geometry.attributes.position.needsUpdate = true;
   }
 
+  // 地心模式不能把日心椭圆简单平移到地球: 那会得到错误的“地心轨道”。
+  // 这里以当前时刻为中心，逐日重算地球与各行星的位置，得到真实的相对视轨。
+  const GEO_TRACE_SEGMENTS = 384;
+  const GEO_TRACE_DAYS = 365.25;
+  const geoTrace = { jd: Number.NaN, blend: -1, earth: new Float64Array((GEO_TRACE_SEGMENTS + 1) * 3) };
+  const _geoEarthKm = [0, 0, 0];
+  const _geoMoonKm = [0, 0, 0];
+  const _geoPlanetKm = [0, 0, 0];
+  function earthHeliocentricKmAt(jdTt, out) {
+    heliocentricKm(bodyByName.Earth.orbit_j2000, jdTt, out);
+    moonGeoKm(jdTt, _geoMoonKm);
+    out[0] -= _geoMoonKm[0] * MU_MOON;
+    out[1] -= _geoMoonKm[1] * MU_MOON;
+    out[2] -= _geoMoonKm[2] * MU_MOON;
+    return out;
+  }
+  function updateGeocentricOrbitLines(visible) {
+    const shouldRebuild = Math.abs(jd - geoTrace.jd) > 0.125 || Math.abs(scaleBlend - geoTrace.blend) > 0.012;
+    if (shouldRebuild) {
+      for (let i = 0; i <= GEO_TRACE_SEGMENTS; i += 1) {
+        const t = jd + (i / GEO_TRACE_SEGMENTS - 0.5) * GEO_TRACE_DAYS;
+        earthHeliocentricKmAt(t, _geoEarthKm);
+        const off = i * 3;
+        geoTrace.earth[off] = _geoEarthKm[0];
+        geoTrace.earth[off + 1] = _geoEarthKm[1];
+        geoTrace.earth[off + 2] = _geoEarthKm[2];
+      }
+      for (const body of planetBodies) {
+        const line = orbitLines[body.name];
+        const arr = line.geometry.attributes.position.array;
+        const colArr = line.geometry.attributes.color.array;
+        for (let i = 0; i <= GEO_TRACE_SEGMENTS; i += 1) {
+          const off = i * 3;
+          if (body.name === "Earth") {
+            _rel[0] = 0; _rel[1] = 0; _rel[2] = 0;
+          } else {
+            const t = jd + (i / GEO_TRACE_SEGMENTS - 0.5) * GEO_TRACE_DAYS;
+            heliocentricKm(body.orbit_j2000, t, _geoPlanetKm);
+            _rel[0] = _geoPlanetKm[0] - geoTrace.earth[off];
+            _rel[1] = _geoPlanetKm[1] - geoTrace.earth[off + 1];
+            _rel[2] = _geoPlanetKm[2] - geoTrace.earth[off + 2];
+          }
+          mapPoint(_rel, _p);
+          arr[off] = _p[0]; arr[off + 1] = _p[1]; arr[off + 2] = _p[2];
+          const age = Math.abs(i / GEO_TRACE_SEGMENTS - 0.5) * 2;
+          const bright = 0.18 + 0.82 * Math.pow(1 - age, 1.7);
+          colArr[off] = bright; colArr[off + 1] = bright; colArr[off + 2] = bright;
+        }
+        line.geometry.attributes.position.needsUpdate = true;
+        line.geometry.attributes.color.needsUpdate = true;
+      }
+      geoTrace.jd = jd;
+      geoTrace.blend = scaleBlend;
+    }
+    for (const body of planetBodies) {
+      const line = orbitLines[body.name];
+      line.visible = visible && body.name !== "Earth";
+      line.material.opacity = body.name === selectedName ? 0.95 : 0.48;
+    }
+  }
+
   function updateOrbitLines(anchor, dx, dy, dz) {
     const visible = document.getElementById("tglOrbits").checked;
+    if (referenceFrame === "geocentric") {
+      updateGeocentricOrbitLines(visible);
+      return;
+    }
     const TWO_PI = Math.PI * 2;
     for (const body of planetBodies) {
       const line = orbitLines[body.name];
@@ -7046,12 +7116,20 @@
   }
 
   /* ---------------- 聚焦 ---------------- */
+  function setReferenceFrame(frame) {
+    if (frame !== "heliocentric" && frame !== "geocentric") return;
+    referenceFrame = frame;
+    anchorName = referenceAnchor();
+    geoTrace.jd = Number.NaN;
+    updateReferenceUi();
+    setFocus(anchorName, true);
+  }
   function setFocus(name, jump) {
     selectedName = name;
     dsSelected = null;
     starSelected = null;
     starFlyGoal = null;
-    anchorName = name;
+    anchorName = referenceAnchor();
     if (cometByName[name] && cometByName[name].hyper) award("visitor");
     updateSystem();
     const target = new THREE.Vector3(...scenePos[name]);
@@ -7216,6 +7294,55 @@
     const p = (n) => String(n).padStart(2, "0");
     return `${d.getUTCFullYear()}-${p(d.getUTCMonth() + 1)}-${p(d.getUTCDate())} ${p(d.getUTCHours())}:${p(d.getUTCMinutes())}`;
   }
+  function timeZoneOffsetHours() {
+    const select = document.getElementById("timeZoneSelect");
+    return select ? Number(select.value) : 8;
+  }
+  function jdToDateInputValue(jdTt) {
+    const ms = Math.round(((jdTt - 2440587.5) * 86400000 + timeZoneOffsetHours() * 3600000) / 60000) * 60000;
+    const d = new Date(ms);
+    const p = (n) => String(n).padStart(2, "0");
+    return `${d.getUTCFullYear()}-${p(d.getUTCMonth() + 1)}-${p(d.getUTCDate())}T${p(d.getUTCHours())}:00`;
+  }
+  function jdToDisplayText(jdTt) {
+    const ms = Math.round(((jdTt - 2440587.5) * 86400000 + timeZoneOffsetHours() * 3600000) / 60000) * 60000;
+    const d = new Date(ms);
+    if (Number.isNaN(d.getTime())) return "----";
+    const p = (n) => String(n).padStart(2, "0");
+    const zone = timeZoneOffsetHours() === 8 ? "CST" : "UTC";
+    return `${d.getUTCFullYear()}-${p(d.getUTCMonth() + 1)}-${p(d.getUTCDate())} ${p(d.getUTCHours())}:${p(d.getUTCMinutes())} ${zone}`;
+  }
+  function dateInputToJd(value) {
+    const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(value || "");
+    if (!match) return null;
+    const utcMs = Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]), Number(match[4]), Number(match[5]));
+    return 2440587.5 + (utcMs - timeZoneOffsetHours() * 3600000) / 86400000;
+  }
+  function syncDateInput(force) {
+    const input = document.getElementById("datetimeInput");
+    if (!input || (!force && document.activeElement === input)) return;
+    const value = jdToDateInputValue(jd);
+    if (input.value !== value) input.value = value;
+  }
+  function updateReferenceUi() {
+    for (const button of document.querySelectorAll("[data-frame]")) {
+      button.classList.toggle("active", button.dataset.frame === referenceFrame);
+    }
+    const detail = document.getElementById("frameDetail");
+    if (detail) detail.textContent = referenceFrame === "geocentric"
+      ? "地心：地球为原点，轨迹为前后一年视轨"
+      : "日心：太阳为原点";
+  }
+  function applyDateInput() {
+    const input = document.getElementById("datetimeInput");
+    const nextJd = input ? dateInputToJd(input.value) : null;
+    if (!Number.isFinite(nextJd)) return;
+    if (deepTime && setDeepTimeRef) setDeepTimeRef(false);
+    jd = clamp(nextJd, J2000 - 36525, J2000 + 36525);
+    playing = false;
+    $("playBtn").textContent = "▶";
+    syncDateInput(true);
+  }
 
   /* ---------------- UI ---------------- */
   const $ = (id) => document.getElementById(id);
@@ -7372,6 +7499,27 @@
   }
 
   function setupUi() {
+    const ephemerisPanel = $("ephemerisPanel");
+    const setEphemerisPanelVisible = (show) => {
+      ephemerisPanel.classList.toggle("show", show);
+      document.body.classList.toggle("ephemeris-open", show);
+    };
+    $("datePickerBtn").addEventListener("click", () => {
+      const show = !ephemerisPanel.classList.contains("show");
+      setEphemerisPanelVisible(show);
+      if (show) syncDateInput(true);
+    });
+    $("ephemerisClose").addEventListener("click", () => setEphemerisPanelVisible(false));
+    $("applyDateBtn").addEventListener("click", applyDateInput);
+    $("datetimeInput").addEventListener("keydown", (event) => {
+      if (event.key === "Enter") { event.preventDefault(); applyDateInput(); }
+    });
+    $("timeZoneSelect").addEventListener("change", () => syncDateInput(true));
+    for (const button of document.querySelectorAll("[data-frame]")) {
+      button.addEventListener("click", () => setReferenceFrame(button.dataset.frame));
+    }
+    syncDateInput(true);
+    updateReferenceUi();
     // 天体按钮(分类分组: 恒星·行星 / 矮行星·彗星 / 卫星)
     const addFocusBtn = (gridId, name, cn, accent, small) => {
       const btn = document.createElement("button");
@@ -7848,8 +7996,9 @@
     if (snapRequest) saveSnapshot();
 
     // HUD
-    $("dateText").textContent = jdToDateText(jd);
+    $("dateText").textContent = jdToDisplayText(jd);
     $("jdText").textContent = `JD ${jd.toFixed(2)} TT`;
+    syncDateInput(false);
     if (!draggingTimeline) $("timeSlider").value = clamp(jd - J2000, tlMin, tlMax);
     fpsFrames += 1;
     hudClock += dt;

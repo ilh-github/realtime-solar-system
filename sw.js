@@ -6,7 +6,7 @@
  * ========================================================================= */
 "use strict";
 
-const VER = "v51";                    // ← 发布新版本时,改这里
+const VER = "v52";                    // ← 发布新版本时,改这里
 const CACHE_PREFIX = "rt-solar-";
 const CACHE_NAME = CACHE_PREFIX + VER;
 
@@ -21,7 +21,7 @@ const PRECACHE = [
   "./moon.html",
   "./sky.html",
   // —— 脚本 ——
-  "./app.js?v=51",
+  "./app.js?v=52",
   "./assets_textures.js?v=51",
   "./asteroids_real.js?v=51",
   "./glb_parser.js?v=51",

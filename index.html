@@ -63,6 +63,31 @@
     .tgroup { display: flex; align-items: center; gap: 6px; }
     .divider { width: 1px; height: 26px; background: rgba(130,170,255,.18); }
 
+    #frameGroup, #ephemerisFrameGroup { gap: 0; padding: 2px; border: 1px solid rgba(130, 170, 255, .22); border-radius: 9px; background: rgba(5, 8, 19, .26); }
+    #frameGroup button, #ephemerisFrameGroup button { min-width: 44px; padding: 4px 8px; border: 0; border-radius: 6px; background: transparent; color: var(--text-dim); }
+    #frameGroup button:hover, #ephemerisFrameGroup button:hover { transform: none; background: rgba(110, 168, 255, .14); color: var(--text); }
+    #frameGroup button.active, #ephemerisFrameGroup button.active { background: rgba(110, 168, 255, .76); color: #fff; box-shadow: 0 0 12px rgba(110, 168, 255, .24); }
+    #datePickerBtn { padding-inline: 9px; }
+    #ephemerisPanel {
+      position: fixed; top: 68px; left: 50%; z-index: 25; width: 316px; padding: 14px;
+      display: none; flex-direction: column; gap: 12px;
+      transform: translateX(-50%);
+    }
+    #ephemerisPanel.show { display: flex; }
+    #ephemerisHead { display: flex; align-items: center; justify-content: space-between; padding-bottom: 8px; border-bottom: 1px solid rgba(130,170,255,.14); }
+    #ephemerisHead b { font-size: 13px; letter-spacing: .12em; }
+    #ephemerisClose { width: 24px; height: 24px; padding: 0; border-radius: 50%; }
+    .ephemerisField { display: flex; flex-direction: column; gap: 6px; color: var(--text-dim); font-size: 11px; letter-spacing: .08em; }
+    .ephemerisField input, .ephemerisField select {
+      width: 100%; min-height: 34px; padding: 6px 9px; color: var(--text); font: inherit; letter-spacing: 0;
+      background: rgba(70, 105, 180, .14); border: 1px solid rgba(130, 170, 255, .26); border-radius: 7px; outline: none;
+      color-scheme: dark;
+    }
+    .ephemerisField input:focus, .ephemerisField select:focus { border-color: rgba(150, 190, 255, .68); }
+    #ephemerisActions { display: grid; grid-template-columns: 1fr auto; gap: 7px; }
+    #applyDateBtn { min-width: 80px; }
+    #frameDetail { margin: -2px 0 0; color: var(--text-dim); font-size: 10.5px; line-height: 1.5; }
+
     button {
       font-family: inherit; font-size: 12.5px; color: var(--text);
       background: rgba(70, 105, 180, 0.22); border: 1px solid rgba(130, 170, 255, 0.25);
@@ -452,6 +477,9 @@
       #panel .subtitle { display: none; }
       #timeBar { top: 4px; left: 4px; right: 4px; padding: 6px 8px; }
       #timeBar button { padding: 7px 9px; font-size: 12px; }
+      #frameGroup { display: none; }
+      #ephemerisPanel { top: 54px; width: min(316px, calc(100vw - 20px)); }
+      body.ephemeris-open #timelineWrap { opacity: 0; pointer-events: none; }
       #timelineWrap { bottom: 48vh; }
       body:has(#panel.collapsed) #timelineWrap { bottom: 6px; }
       #panelToggle { bottom: 10px; top: auto; }
@@ -574,16 +602,22 @@
     </div>
   </div>
 
-  <div id="timeBar" class="glass" role="toolbar" aria-label="时间控制">
-    <div class="tgroup" style="flex-direction:column; align-items:flex-start; gap:0;">
-      <span id="dateText">2000-01-01 12:00</span>
-      <span id="jdText">JD 2451545.00 TT</span>
-    </div>
-    <div class="divider"></div>
-    <div class="tgroup">
+    <div id="timeBar" class="glass" role="toolbar" aria-label="时间控制">
+      <div class="tgroup" style="flex-direction:column; align-items:flex-start; gap:0;">
+        <span id="dateText">2000-01-01 12:00</span>
+        <span id="jdText">JD 2451545.00 TT</span>
+      </div>
+      <div class="divider"></div>
+      <div id="frameGroup" class="tgroup" role="group" aria-label="参考系">
+        <button data-frame="heliocentric" class="active" title="太阳位于坐标原点">日心</button>
+        <button data-frame="geocentric" title="地球位于坐标原点">地心</button>
+      </div>
+      <button id="datePickerBtn" title="输入公历时间" aria-label="输入公历时间">时间</button>
+      <div class="divider"></div>
+      <div class="tgroup">
       <button id="dirBtn" class="icon" title="时间方向" aria-label="切换时间方向">▶</button>
       <button id="playBtn" class="icon" title="播放/暂停" aria-label="播放或暂停时间">⏸</button>
-    </div>
+      </div>
     <div class="divider"></div>
     <div class="tgroup" id="speedGroup"></div>
     <div class="divider"></div>
@@ -595,6 +629,27 @@
     <button id="shareBtn" title="把当前时刻/聚焦/尺度/模式写进网址并复制 —— 可收藏可分享">分享</button>
     <button id="photoBtn" title="摄影模式: 隐藏全部界面, 快门存图 (P)">摄影</button>
   </div>
+
+  <section id="ephemerisPanel" class="glass" aria-label="星历时间与参考系">
+    <div id="ephemerisHead"><b>星历定位</b><button id="ephemerisClose" aria-label="关闭星历定位">×</button></div>
+    <label class="ephemerisField">公历时间（精确到小时）
+      <input id="datetimeInput" type="datetime-local" min="1900-01-01T00:00" max="2100-01-01T00:00" step="3600">
+    </label>
+    <div id="ephemerisActions">
+      <label class="ephemerisField">输入时区
+        <select id="timeZoneSelect" aria-label="输入时区">
+          <option value="8">中国标准时间 UTC+08:00</option>
+          <option value="0">UTC UTC+00:00</option>
+        </select>
+      </label>
+      <button id="applyDateBtn" title="按输入时间重新计算位置">定位</button>
+    </div>
+    <div id="ephemerisFrameGroup" class="tgroup" role="group" aria-label="参考系">
+      <button data-frame="heliocentric" class="active" title="太阳位于坐标原点">日心</button>
+      <button data-frame="geocentric" title="地球位于坐标原点">地心</button>
+    </div>
+    <div id="frameDetail">日心：太阳为原点</div>
+  </section>
 
   <div id="timelineWrap" class="glass">
     <input id="timeSlider" type="range" min="-36525" max="36525" step="0.25" value="0">
@@ -745,7 +800,7 @@
   <script src="./solar_system_data.js?v=51"></script>
   <script src="./visitors_data.js?v=51"></script>
   <script src="./glb_parser.js?v=51"></script>
-  <script src="./app.js?v=51"></script>
+  <script src="./app.js?v=52"></script>
   <script>if ("serviceWorker" in navigator && location.protocol.indexOf("http") === 0) navigator.serviceWorker.register("./sw.js").catch(function () {});</script>
 </body>
 </html>
