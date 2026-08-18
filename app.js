@@ -7333,6 +7333,12 @@
       ? "地心：地球为原点，轨迹为前后一年视轨"
       : "日心：太阳为原点";
   }
+  function setEphemerisPanelVisible(show) {
+    const panel = document.getElementById("ephemerisPanel");
+    if (!panel) return;
+    panel.classList.toggle("show", show);
+    document.body.classList.toggle("ephemeris-open", show);
+  }
   function applyDateInput() {
     const input = document.getElementById("datetimeInput");
     const nextJd = input ? dateInputToJd(input.value) : null;
@@ -7342,6 +7348,7 @@
     playing = false;
     $("playBtn").textContent = "▶";
     syncDateInput(true);
+    setEphemerisPanelVisible(false);
   }
 
   /* ---------------- UI ---------------- */
@@ -7500,10 +7507,6 @@
 
   function setupUi() {
     const ephemerisPanel = $("ephemerisPanel");
-    const setEphemerisPanelVisible = (show) => {
-      ephemerisPanel.classList.toggle("show", show);
-      document.body.classList.toggle("ephemeris-open", show);
-    };
     $("datePickerBtn").addEventListener("click", () => {
       const show = !ephemerisPanel.classList.contains("show");
       setEphemerisPanelVisible(show);
