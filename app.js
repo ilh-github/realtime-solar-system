@@ -2933,7 +2933,7 @@
     return d;
   }
   function meteorPeakJdFull(year, lam) {
-    const j0 = 2440587.5 + Date.UTC(year, 0, 1) / 86400000;
+    const j0 = utcJdToTtJd(2440587.5 + Date.UTC(year, 0, 1) / 86400000);
     let prev = angDiffDeg(sunLonDeg(j0), lam);
     for (let d = 2; d <= 368; d += 2) {
       const cur = angDiffDeg(sunLonDeg(j0 + d), lam);
@@ -5140,17 +5140,17 @@
 
   /* ---------------- 天象日历导出 .ics(纯前端, 未来一年) ---------------- */
   function buildIcs() {
-    const nowJd = 2440587.5 + Date.now() / 86400000;
-    const evs = EVENTS.filter((ev) => ev.jd > nowJd && ev.jd < nowJd + 366);
+    const nowTtJd = currentTtJd();
+    const evs = EVENTS.filter((ev) => ev.jd > nowTtJd && ev.jd < nowTtJd + 366);
     const p2 = (n) => String(n).padStart(2, "0");
     const fmt = (jdq) => {
-      const d = new Date((jdq - 2440587.5) * 86400000);
+      const d = new Date((ttJdToUtcJd(jdq) - 2440587.5) * 86400000);
       return `${d.getUTCFullYear()}${p2(d.getUTCMonth() + 1)}${p2(d.getUTCDate())}T${p2(d.getUTCHours())}${p2(d.getUTCMinutes())}00Z`;
     };
     const esc = (t) => t.replace(/([,;])/g, "\\$1");
     let out = "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//实时太阳系//天象日历//CN\r\n";
     for (const ev of evs) {
-      out += `BEGIN:VEVENT\r\nUID:ss-${ev.jd.toFixed(4)}@realtime-solar\r\nDTSTAMP:${fmt(nowJd)}\r\nDTSTART:${fmt(ev.jd)}\r\nSUMMARY:${esc(ev.cn)}\r\nDESCRIPTION:来自「实时太阳系」天象日历\r\nEND:VEVENT\r\n`;
+      out += `BEGIN:VEVENT\r\nUID:ss-${ev.jd.toFixed(4)}@realtime-solar\r\nDTSTAMP:${fmt(nowTtJd)}\r\nDTSTART:${fmt(ev.jd)}\r\nSUMMARY:${esc(ev.cn)}\r\nDESCRIPTION:来自「实时太阳系」天象日历\r\nEND:VEVENT\r\n`;
     }
     return out + "END:VCALENDAR\r\n";
   }
@@ -5269,7 +5269,7 @@
     refreshScaleButtons();
     playing = false;
     jd = J2000;
-    INTRO.jdTarget = 2440587.5 + Date.now() / 86400000;
+    INTRO.jdTarget = currentTtJd();
     camera.position.set(5.4e7, -1.6e7, 2.4e7);
     controls.target.set(0, 0, 0);
     // 门上的今夜真话
@@ -5877,7 +5877,7 @@
   function refreshTonight() {
     const el = $("tonight");
     if (!el) return;
-    const jdNow = 2440587.5 + Date.now() / 86400000;
+    const jdNow = currentTtJd();
     const ph = moonPhaseNow(jdNow);
     const e = heliocentricKm(bodyByName.Earth.orbit_j2000, jdNow);
     const ls = Math.atan2(-e[1], -e[0]);
@@ -7061,7 +7061,7 @@
   const GUIDE_STEPS = [
     { el: null, t: "欢迎来到实时太阳系", x: "这里没有一帧是摆拍——行星、卫星、彗星、探测器的每个位置都由真实历表与实测数据推算。花一分钟了解玩法, 随时可跳过。" },
     { el: "timeBar", t: "时间是核心玩具", x: "播放/倒放/变速。<b>天象</b>=1900—2100 全事件日历(日食月食一键跳);<b>深时</b>=±5 万年看星座变形与北极星更替;<b>星际</b>=恒星展开真实距离, 飞出太阳系。" },
-    { el: "timelineWrap", t: "时间轴", x: "拖动滑块穿越两百年。彩色圆点是大事件: 哈雷回归、阿波菲斯 2029 掠地、旅行者 1977 出发…悬停可看说明。" },
+    { el: "timelineWrap", t: "时间轴", x: "拖动滑块穿越 1900—2100。彩色圆点是大事件: 哈雷回归、阿波菲斯 2029 掠地、旅行者 1977 出发…悬停可看说明。深时模式可扩展到约 ±5 万年。" },
     { el: "panel", t: "聚焦·信息·显示", x: "点击任意天体按钮聚焦跟随, 信息卡显示实时数据;<b>真实/观感尺度</b>随时切换。显示选项里可关掉<b>小行星带/柯伊伯带</b>, 「星空」三挡里选<b>无星</b>即一片黑寂。悬停任意亮星可看它的简介。" },
     { el: "sbxBtn", t: "引力沙盒 · 玩法", x: "开启<b>投放模式</b>后: 在黄道面<b>按下</b>=定位置, <b>拖拽</b>=给速度(实时显示圆轨道/逃逸参考), <b>松开</b>=发射;轻点=直接圆轨道。探针受太阳+八大行星真实引力——扔到木星旁试试引力弹弓。" },
     { el: "launchBtn", t: "霍曼挑战 · 规则", x: "把探针送到火星: ①点<b>下个窗口</b>(自动对相位并代入理论 Δv) ②微调 Δv ③<b>发射</b>。按与火星最近距离评星, ★★★<300 万 km。窗口不对, 怎么加速都到不了——会合周期 780 天。" },
@@ -7298,6 +7298,16 @@
     if (mode === "julian") return false;
     return year > 1582 || (year === 1582 && (month > 10 || (month === 10 && day >= 15)));
   }
+  function isLeapCivilYear(year, mode) {
+    const gregorian = usesGregorianCalendar(year, 3, 1, mode);
+    return gregorian
+      ? year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0)
+      : year % 4 === 0;
+  }
+  function daysInCivilMonth(year, month, mode) {
+    if (month === 2) return isLeapCivilYear(year, mode) ? 29 : 28;
+    return [4, 6, 9, 11].includes(month) ? 30 : 31;
+  }
   function civilToJd(year, month, day, hour, minute, mode) {
     let y = year, m = month;
     if (m <= 2) { y -= 1; m += 12; }
@@ -7324,11 +7334,14 @@
     let year = month > 2 ? c - 4716 : c - 4715;
     let day = Math.floor(dayWithFraction);
     let totalMinutes = Math.round((dayWithFraction - day) * 1440);
-    if (totalMinutes >= 1440) { totalMinutes -= 1440; day += 1; }
+    if (totalMinutes >= 1440) { totalMinutes = 0; day += 1; }
+    if (day > daysInCivilMonth(year, month, mode)) {
+      day = 1;
+      month += 1;
+      if (month > 12) { month = 1; year += 1; }
+    }
     let hour = Math.floor(totalMinutes / 60);
     const minute = totalMinutes % 60;
-    // Rounding can carry into the next civil day; recurse once to normalize it.
-    if (day > 31) return jdToCivil(jdValue + 1 / 86400000, mode);
     return { year, month, day, hour, minute };
   }
   // NASA/Espenak polynomial approximation of ΔT = TT - UT (seconds).
@@ -7407,6 +7420,12 @@
   }
   function utcJdToTtJd(jdUtc) {
     return jdUtc + deltaTSecondsForJd(jdUtc) / 86400;
+  }
+  function currentUtcJd() {
+    return 2440587.5 + Date.now() / 86400000;
+  }
+  function currentTtJd() {
+    return utcJdToTtJd(currentUtcJd());
   }
   function ttJdToUtcJd(jdTt) {
     let jdUtc = jdTt - deltaTSecondsForJd(jdTt) / 86400;
@@ -7522,8 +7541,11 @@
     civilToJd,
     jdToCivil,
     deltaTSecondsForYear,
+    deltaTSecondsForJd,
     utcJdToTtJd,
     ttJdToUtcJd,
+    currentUtcJd,
+    currentTtJd,
     parseDateToTtJd,
     positionKm: (name, jdTt) => {
       const body = bodyByName[name];
@@ -7695,7 +7717,9 @@
       setEphemerisPanelVisible(show);
       if (show) syncDateInput(true);
     });
-    $("ephemerisClose").addEventListener("click", () => setEphemerisPanelVisible(false));
+    // Closing is also a commit point: some native date pickers defer their
+    // final change event until the control loses focus.
+    $("ephemerisClose").addEventListener("click", () => applyDateInput());
     $("applyDateBtn").addEventListener("click", applyDateInput);
     const nativeDateChanged = () => {
       const astroInput = $("astroDateInput");
@@ -7817,7 +7841,7 @@
       $("dirBtn").textContent = timeDirection > 0 ? "正向" : "反向";
     });
     $("resetBtn").addEventListener("click", () => { jd = J2000; });
-    $("todayBtn").addEventListener("click", () => { jd = 2440587.5 + Date.now() / 86400000; });
+    $("todayBtn").addEventListener("click", () => { jd = currentTtJd(); });
     $("evtBtn").addEventListener("click", () => {
       const modal = $("evtModal");
       if (modal.classList.contains("show")) { modal.classList.remove("show"); return; }
@@ -7943,7 +7967,10 @@
       });
     }
     $("skyBtn").addEventListener("click", () => {
-      window.open(`sky.html#lat=39.90&lon=116.40&jd=${jd.toFixed(4)}`, "_blank");
+      // The main scene stores ephemeris time as TT; sky.js consumes UT for
+      // sidereal time and its own TT conversion, so convert at the handoff.
+      const skyJdUtc = ttJdToUtcJd(jd);
+      window.open(`sky.html#lat=39.90&lon=116.40&jd=${skyJdUtc.toFixed(4)}`, "_blank");
     });
     refreshTonight();
     if (typeof setInterval !== "undefined") setInterval(refreshTonight, 600000);
