@@ -57,6 +57,10 @@ python3 -m http.server 8000
 
 The Service Worker only registers under `http(s)` and `localhost` — browsers do not allow SW registration on `file://` pages for security reasons. This is not a bug; page functionality is unaffected.
 
+### Historical dates and ephemeris limits
+
+The main view accepts hourly civil time in UTC or China Standard Time, plus astronomical-year input such as `-0199-04-08 20:00` (`0000` is 1 BC). The selected civil time is converted to TT with the NASA/Espenak approximation for `ΔT = TT - UT` before the orbital calculation. The UI supports roughly ±50,000 years for the deep-time model, but planetary positions still use JPL SSD approximate elements and a Kepler solver, not DE440/DE441 precision ephemerides. Ancient dates also inherit historical `ΔT` uncertainty. See [`analysis-records/`](analysis-records/) for the algorithm and HORIZONS comparisons.
+
 ## Deployment
 
 Any static host works: upload the repository contents to the site root.

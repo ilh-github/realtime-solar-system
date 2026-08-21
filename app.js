@@ -423,11 +423,11 @@
   }
   const MU_MOON = 0.012150668;    // 月球/(地+月) 质量比 → 地月质心摆动
   const MU_CHARON = 0.1086;       // 卡戎/(冥+卡) 质量比
-  /* ---------------- 米兰科维奇循环(深时示意, ±2000 年内严格零影响) ----------------
+  /* ---------------- 米兰科维奇循环(深时示意, ±5000 年内严格零影响) ----------------
    * 黄赤交角: 22.1°~24.5°, 周期 ~41000 年(相位校准: 当前 23.44° 且正在减小, ~-47″/世纪);
    * 偏心率: ~0.000-0.058, 十万年 + 40.5 万年双周期近似(Laskar 级数的两项粗描)。 */
   function milankovitchBlend(yr) {
-    return clamp((Math.abs(yr) - 2000) / 8000, 0, 1);   // ±2000 年内为 0 → 天象引擎精度不受扰
+    return clamp((Math.abs(yr) - 5000) / 10000, 0, 1);  // 历史年代不叠加展示用的轨道呼吸
   }
   function obliquityDeg(yr) {
     const eps = 23.30 + 1.15 * Math.cos(Math.PI * 2 * (yr + 9450) / 41000);
@@ -7287,42 +7287,192 @@
   });
 
   /* ---------------- 时间与日期 ---------------- */
-  function jdToDateText(jdTt) {
-    const ms = (jdTt - 2440587.5) * 86400000;
-    const d = new Date(ms);
-    if (Number.isNaN(d.getTime())) return "----";
+  const GREGORIAN_SWITCH_JD = 2299160.5; // 1582-10-15 00:00 UTC
+  const DEEP_TIME_DAYS = 18262500;       // ±50,000 tropical years (365.25 d/yr)
+  function calendarMode() {
+    const select = document.getElementById("calendarSelect");
+    return select && ["auto", "gregorian", "julian"].includes(select.value) ? select.value : "auto";
+  }
+  function usesGregorianCalendar(year, month, day, mode) {
+    if (mode === "gregorian") return true;
+    if (mode === "julian") return false;
+    return year > 1582 || (year === 1582 && (month > 10 || (month === 10 && day >= 15)));
+  }
+  function civilToJd(year, month, day, hour, minute, mode) {
+    let y = year, m = month;
+    if (m <= 2) { y -= 1; m += 12; }
+    const a = Math.floor(y / 100);
+    const b = usesGregorianCalendar(year, month, day, mode) ? 2 - a + Math.floor(a / 4) : 0;
+    return Math.floor(365.25 * (y + 4716)) + Math.floor(30.6001 * (m + 1)) + day + b - 1524.5
+      + (hour * 60 + minute) / 1440;
+  }
+  function jdToCivil(jdValue, mode) {
+    const z = Math.floor(jdValue + 0.5);
+    const f = jdValue + 0.5 - z;
+    const gregorian = mode === "gregorian" || (mode === "auto" && jdValue >= GREGORIAN_SWITCH_JD);
+    let a = z;
+    if (gregorian) {
+      const alpha = Math.floor((z - 1867216.25) / 36524.25);
+      a += 1 + alpha - Math.floor(alpha / 4);
+    }
+    const b = a + 1524;
+    const c = Math.floor((b - 122.1) / 365.25);
+    const d = Math.floor(365.25 * c);
+    const e = Math.floor((b - d) / 30.6001);
+    const dayWithFraction = b - d - Math.floor(30.6001 * e) + f;
+    let month = e < 14 ? e - 1 : e - 13;
+    let year = month > 2 ? c - 4716 : c - 4715;
+    let day = Math.floor(dayWithFraction);
+    let totalMinutes = Math.round((dayWithFraction - day) * 1440);
+    if (totalMinutes >= 1440) { totalMinutes -= 1440; day += 1; }
+    let hour = Math.floor(totalMinutes / 60);
+    const minute = totalMinutes % 60;
+    // Rounding can carry into the next civil day; recurse once to normalize it.
+    if (day > 31) return jdToCivil(jdValue + 1 / 86400000, mode);
+    return { year, month, day, hour, minute };
+  }
+  // NASA/Espenak polynomial approximation of ΔT = TT - UT (seconds).
+  // It is sufficient for the visualizer's time-scale correction, but not a
+  // replacement for historical Earth-orientation observations.
+  function deltaTSecondsForYear(year) {
+    const y = year;
+    let u, t;
+    if (y < -500) {
+      u = (y - 1820) / 100;
+      return -20 + 32 * u * u;
+    }
+    if (y < 500) {
+      u = y / 100;
+      return 10583.6 - 1014.41 * u + 33.78311 * u * u - 5.952053 * u ** 3
+        - 0.1798452 * u ** 4 + 0.022174192 * u ** 5 + 0.0090316521 * u ** 6;
+    }
+    if (y < 1600) {
+      u = (y - 1000) / 100;
+      return 1574.2 - 556.01 * u + 71.23472 * u * u + 0.319781 * u ** 3
+        - 0.8503463 * u ** 4 - 0.005050998 * u ** 5 + 0.0083572073 * u ** 6;
+    }
+    if (y < 1700) {
+      t = y - 1600;
+      return 120 - 0.9808 * t - 0.01532 * t * t + t ** 3 / 7129;
+    }
+    if (y < 1800) {
+      t = y - 1700;
+      return 8.83 + 0.1603 * t - 0.0059285 * t * t + 0.00013336 * t ** 3 - t ** 4 / 1174000;
+    }
+    if (y < 1860) {
+      t = y - 1800;
+      return 13.72 - 0.332447 * t + 0.0068612 * t ** 2 + 0.0041116 * t ** 3
+        - 0.00037436 * t ** 4 + 0.0000121272 * t ** 5 - 0.0000001699 * t ** 6
+        + 0.000000000875 * t ** 7;
+    }
+    if (y < 1900) {
+      t = y - 1860;
+      return 7.62 + 0.5737 * t - 0.251754 * t ** 2 + 0.01680668 * t ** 3
+        - 0.0004473624 * t ** 4 + t ** 5 / 233174;
+    }
+    if (y < 1920) {
+      t = y - 1900;
+      return -2.79 + 1.494119 * t - 0.0598939 * t ** 2 + 0.0061966 * t ** 3 - 0.000197 * t ** 4;
+    }
+    if (y < 1941) {
+      t = y - 1920;
+      return 21.20 + 0.84493 * t - 0.076100 * t ** 2 + 0.0020936 * t ** 3;
+    }
+    if (y < 1961) {
+      t = y - 1950;
+      return 29.07 + 0.407 * t - t * t / 233 + t ** 3 / 2547;
+    }
+    if (y < 1986) {
+      t = y - 1975;
+      return 45.45 + 1.067 * t - t * t / 260 - t ** 3 / 718;
+    }
+    if (y < 2005) {
+      t = y - 2000;
+      return 63.86 + 0.3345 * t - 0.060374 * t ** 2 + 0.0017275 * t ** 3
+        + 0.000651814 * t ** 4 + 0.00002373599 * t ** 5;
+    }
+    if (y < 2050) {
+      t = y - 2000;
+      return 62.92 + 0.32217 * t + 0.005589 * t ** 2;
+    }
+    if (y < 2150) {
+      return -20 + 32 * ((y - 1820) / 100) ** 2 - 0.5628 * (2150 - y);
+    }
+    u = (y - 1820) / 100;
+    return -20 + 32 * u * u;
+  }
+  function deltaTSecondsForJd(jdValue) {
+    const p = jdToCivil(jdValue, "auto");
+    return deltaTSecondsForYear(p.year + (p.month - 0.5) / 12);
+  }
+  function utcJdToTtJd(jdUtc) {
+    return jdUtc + deltaTSecondsForJd(jdUtc) / 86400;
+  }
+  function ttJdToUtcJd(jdTt) {
+    let jdUtc = jdTt - deltaTSecondsForJd(jdTt) / 86400;
+    // One correction step handles the slow variation of ΔT across a date.
+    jdUtc = jdTt - deltaTSecondsForJd(jdUtc) / 86400;
+    return jdUtc;
+  }
+  function formatAstronomicalYear(year) {
+    const abs = String(Math.abs(year)).padStart(4, "0");
+    return year < 0 ? `-${abs}` : abs;
+  }
+  function formatCivilDate(parts, withTime = true) {
     const p = (n) => String(n).padStart(2, "0");
-    return `${d.getUTCFullYear()}-${p(d.getUTCMonth() + 1)}-${p(d.getUTCDate())} ${p(d.getUTCHours())}:${p(d.getUTCMinutes())}`;
+    return `${formatAstronomicalYear(parts.year)}-${p(parts.month)}-${p(parts.day)}`
+      + (withTime ? ` ${p(parts.hour)}:${p(parts.minute)}` : "");
+  }
+  function jdToDateText(jdTt) {
+    return formatCivilDate(jdToCivil(ttJdToUtcJd(jdTt), calendarMode()));
   }
   function timeZoneOffsetHours() {
     const select = document.getElementById("timeZoneSelect");
     return select ? Number(select.value) : 8;
   }
   function jdToDateInputValue(jdTt) {
-    const ms = Math.round(((jdTt - 2440587.5) * 86400000 + timeZoneOffsetHours() * 3600000) / 60000) * 60000;
-    const d = new Date(ms);
+    const parts = jdToCivil(ttJdToUtcJd(jdTt) + timeZoneOffsetHours() / 24, calendarMode());
+    if (parts.year < 1 || parts.year > 9999) return "";
     const p = (n) => String(n).padStart(2, "0");
-    return `${d.getUTCFullYear()}-${p(d.getUTCMonth() + 1)}-${p(d.getUTCDate())}T${p(d.getUTCHours())}:00`;
+    return `${String(parts.year).padStart(4, "0")}-${p(parts.month)}-${p(parts.day)}T${p(parts.hour)}:00`;
   }
   function jdToDisplayText(jdTt) {
-    const ms = Math.round(((jdTt - 2440587.5) * 86400000 + timeZoneOffsetHours() * 3600000) / 60000) * 60000;
-    const d = new Date(ms);
-    if (Number.isNaN(d.getTime())) return "----";
-    const p = (n) => String(n).padStart(2, "0");
+    const parts = jdToCivil(ttJdToUtcJd(jdTt) + timeZoneOffsetHours() / 24, calendarMode());
     const zone = timeZoneOffsetHours() === 8 ? "CST" : "UTC";
-    return `${d.getUTCFullYear()}-${p(d.getUTCMonth() + 1)}-${p(d.getUTCDate())} ${p(d.getUTCHours())}:${p(d.getUTCMinutes())} ${zone}`;
+    return `${formatCivilDate(parts)} ${zone}`;
+  }
+  function parseDateToTtJd(value, zoneHours, mode) {
+    const match = /^([+-]?\d{1,6})-(\d{2})-(\d{2})[T ](\d{2})(?::(\d{2}))?$/.exec(String(value || "").trim());
+    if (!match) return null;
+    const year = Number(match[1]), month = Number(match[2]), day = Number(match[3]);
+    const hour = Number(match[4]), minute = Number(match[5] || 0);
+    if (!Number.isInteger(year) || month < 1 || month > 12 || day < 1 || day > 31 || hour > 23 || minute > 59) return null;
+    if (mode === "auto" && year === 1582 && month === 10 && day >= 5 && day <= 14) return null;
+    const localJd = civilToJd(year, month, day, hour, minute, mode);
+    const roundTrip = jdToCivil(localJd, mode);
+    if (roundTrip.year !== year || roundTrip.month !== month || roundTrip.day !== day
+      || roundTrip.hour !== hour || roundTrip.minute !== minute) return null;
+    return utcJdToTtJd(localJd - zoneHours / 24);
   }
   function dateInputToJd(value) {
-    const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(value || "");
-    if (!match) return null;
-    const utcMs = Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]), Number(match[4]), Number(match[5]));
-    return 2440587.5 + (utcMs - timeZoneOffsetHours() * 3600000) / 86400000;
+    return parseDateToTtJd(value, timeZoneOffsetHours(), calendarMode());
   }
   function syncDateInput(force) {
     const input = document.getElementById("datetimeInput");
-    if (!input || (!force && document.activeElement === input)) return;
+    const astroInput = document.getElementById("astroDateInput");
+    if (!input || (!force && (document.activeElement === input || document.activeElement === astroInput))) return;
     const value = jdToDateInputValue(jd);
-    if (input.value !== value) input.value = value;
+    const parts = jdToCivil(ttJdToUtcJd(jd) + timeZoneOffsetHours() / 24, calendarMode());
+    if (parts.year >= 1 && parts.year <= 9999) {
+      if (input.value !== value) input.value = value;
+      if (astroInput) astroInput.value = "";
+    } else {
+      if (input.value) input.value = "";
+      if (astroInput) {
+        const astroValue = `${formatCivilDate(parts)}`;
+        if (astroInput.value !== astroValue) astroInput.value = astroValue;
+      }
+    }
   }
   function updateReferenceUi() {
     for (const button of document.querySelectorAll("[data-frame]")) {
@@ -7341,10 +7491,23 @@
   }
   function applyDateInput(closePanel = true) {
     const input = document.getElementById("datetimeInput");
-    const nextJd = input ? dateInputToJd(input.value) : null;
-    if (!Number.isFinite(nextJd)) return;
-    if (deepTime && setDeepTimeRef) setDeepTimeRef(false);
-    jd = clamp(nextJd, J2000 - 36525, J2000 + 36525);
+    const astroInput = document.getElementById("astroDateInput");
+    const astroValue = astroInput ? astroInput.value.trim() : "";
+    const nextJd = dateInputToJd(astroValue || (input ? input.value : ""));
+    const hint = document.getElementById("ephemerisHint");
+    if (!Number.isFinite(nextJd)) {
+      if (hint && (astroValue || (input && input.value))) hint.textContent = "日期格式或历法日期无效，请使用 YYYY-MM-DD HH:00。";
+      return;
+    }
+    if (nextJd < J2000 - DEEP_TIME_DAYS || nextJd > J2000 + DEEP_TIME_DAYS) {
+      if (hint) hint.textContent = "当前轨道模型支持约 ±5 万年；超出范围请改用专业精密星历。";
+      return;
+    }
+    const normalRange = Math.abs(nextJd - J2000) <= 36525;
+    if (normalRange && deepTime && setDeepTimeRef) setDeepTimeRef(false);
+    if (!normalRange && !deepTime && setDeepTimeRef) setDeepTimeRef(true);
+    jd = clamp(nextJd, J2000 + tlMin, J2000 + tlMax);
+    if (hint) hint.textContent = "天文年：1 BC = 0000，200 BC = -0199。输入时间按所选时区解释，内部以 ΔT 近似转换为 TT。";
     playing = false;
     $("playBtn").textContent = "播放";
     // Native datetime-local pickers emit several input events while the user
@@ -7355,6 +7518,21 @@
       setEphemerisPanelVisible(false);
     }
   }
+  if (typeof window !== "undefined") window.__ephemeris = {
+    civilToJd,
+    jdToCivil,
+    deltaTSecondsForYear,
+    utcJdToTtJd,
+    ttJdToUtcJd,
+    parseDateToTtJd,
+    positionKm: (name, jdTt) => {
+      const body = bodyByName[name];
+      if (!body || !body.orbit_j2000) return null;
+      const out = [0, 0, 0];
+      return name === "Earth" ? earthHeliocentricKmAt(jdTt, out) : heliocentricKm(body.orbit_j2000, jdTt, out);
+    },
+    moonGeocentricKm: (jdTt) => moonGeoKm(jdTt, [0, 0, 0])
+  };
 
   /* ---------------- UI ---------------- */
   const $ = (id) => document.getElementById(id);
@@ -7519,12 +7697,22 @@
     });
     $("ephemerisClose").addEventListener("click", () => setEphemerisPanelVisible(false));
     $("applyDateBtn").addEventListener("click", applyDateInput);
-    $("datetimeInput").addEventListener("input", () => applyDateInput(false));
-    $("datetimeInput").addEventListener("change", () => applyDateInput(false));
+    const nativeDateChanged = () => {
+      const astroInput = $("astroDateInput");
+      if (astroInput) astroInput.value = "";
+      applyDateInput(false);
+    };
+    $("datetimeInput").addEventListener("input", nativeDateChanged);
+    $("datetimeInput").addEventListener("change", nativeDateChanged);
     $("datetimeInput").addEventListener("keydown", (event) => {
       if (event.key === "Enter") { event.preventDefault(); applyDateInput(); }
     });
+    $("astroDateInput").addEventListener("input", () => applyDateInput(false));
+    $("astroDateInput").addEventListener("keydown", (event) => {
+      if (event.key === "Enter") { event.preventDefault(); applyDateInput(); }
+    });
     $("timeZoneSelect").addEventListener("change", () => syncDateInput(true));
+    $("calendarSelect").addEventListener("change", () => syncDateInput(true));
     for (const button of document.querySelectorAll("[data-frame]")) {
       button.addEventListener("click", () => setReferenceFrame(button.dataset.frame));
     }
@@ -8007,7 +8195,18 @@
 
     // HUD
     $("dateText").textContent = jdToDisplayText(jd);
-    $("jdText").textContent = `JD ${jd.toFixed(2)} TT`;
+    const jdEl = $("jdText");
+    const deltaTNow = deltaTSecondsForJd(ttJdToUtcJd(jd));
+    jdEl.textContent = `JD ${jd.toFixed(2)} TT`;
+    jdEl.title = `JD ${jd.toFixed(6)} TT · ΔT≈${deltaTNow.toFixed(1)} 秒`;
+    jdEl.dataset.jdTt = jd.toFixed(9);
+    jdEl.dataset.deltaTSeconds = deltaTNow.toFixed(3);
+    const earthNow = worldKm.Earth;
+    if (earthNow) {
+      jdEl.dataset.earthXKm = earthNow[0].toFixed(3);
+      jdEl.dataset.earthYKm = earthNow[1].toFixed(3);
+      jdEl.dataset.earthZKm = earthNow[2].toFixed(3);
+    }
     syncDateInput(false);
     if (!draggingTimeline) $("timeSlider").value = clamp(jd - J2000, tlMin, tlMax);
     fpsFrames += 1;
