@@ -191,6 +191,8 @@
   let anchorName = "Sun";
   let referenceFrame = "heliocentric";  // 坐标原点与镜头聚焦解耦: 日心 / 地心
   let selectedName = "Earth";
+  // 首屏只聚焦太阳—地球—月球，星历计算仍覆盖完整天体集。
+  let minimalInitialScene = true;
   let scaleBlend = 1.0;
   let daysPerSecond = 1.0;
   let timeDirection = 1;
@@ -539,6 +541,7 @@
   const pickMeshes = [];
   const labels = {};
   const orbitLines = {};
+  let sunOrbitLine = null;
   let earthMaterial = null;
   let atmoMaterial = null;
   let cloudMesh = null;
@@ -825,6 +828,17 @@
       line.frustumCulled = false;
       scene.add(line);
       orbitLines[body.name] = line;
+    }
+    {
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute("position", new THREE.BufferAttribute(new Float32Array((GEO_TRACE_SEGMENTS + 1) * 3), 3));
+      geo.setAttribute("color", new THREE.BufferAttribute(new Float32Array((GEO_TRACE_SEGMENTS + 1) * 3).fill(1), 3));
+      sunOrbitLine = new THREE.Line(geo, new THREE.LineBasicMaterial({
+        color: new THREE.Color(ACCENT.Sun), vertexColors: true, transparent: true, opacity: 0.72
+      }));
+      sunOrbitLine.frustumCulled = false;
+      sunOrbitLine.visible = false;
+      scene.add(sunOrbitLine);
     }
     buildSatellites();
     buildBelt();
@@ -1627,10 +1641,12 @@
       const rNuc = lerp(c.radius_km / SCALE.sceneUnitKm, c.cinR || (0.05 * Math.pow(c.radius_km / 5.5, 0.3)), scaleBlend);
       gfx.group.position.set(px, py, pz);
       gfx.group.scale.setScalar(rNuc);
+      const cometVisible = !minimalInitialScene || selectedName === c.name;
+      gfx.group.visible = cometVisible;
       const comaScale = (rNuc * 7 + act * lerp(46, 0.85, scaleBlend) + lerp(0, 0.12, scaleBlend)) * c.comaK;
       gfx.coma.position.set(px, py, pz);
       gfx.coma.scale.set(comaScale, comaScale, 1);
-      gfx.coma.visible = !c.noComa;
+      gfx.coma.visible = cometVisible && !c.noComa;
       gfx.coma.material.opacity = 0.14 + 0.62 * act;
       const rPick = Math.max(rNuc * 5, comaScale * 0.5);
       gfx.pick.position.set(px, py, pz);
@@ -1646,8 +1662,8 @@
       _basisU.normalize();
       _basisW.crossVectors(_antiSun, _basisU).normalize();
       const tailsVisible = act > 0.02;
-      gfx.ion.pts.visible = tailsVisible;
-      gfx.dust.pts.visible = tailsVisible;
+      gfx.ion.pts.visible = cometVisible && tailsVisible;
+      gfx.dust.pts.visible = cometVisible && tailsVisible;
       if (tailsVisible) {
         writeTail(gfx.ion, ckm, anchor, dx, dy, dz, c.ionLen * act, 0.9e6 * act, 0.025);
         writeTail(gfx.dust, ckm, anchor, dx, dy, dz, c.dustLen * act, 7.2e6 * act, 0.05);
@@ -1655,7 +1671,7 @@
         gfx.dust.pts.material.opacity = 0.5 * act;
       }
       // 轨道线(渐变尾迹)
-      gfx.orbitLine.visible = showOrbits;
+      gfx.orbitLine.visible = cometVisible && showOrbits;
       if (showOrbits && !lineSkip) {
         const seg = cometActiveSeg(c, jd);
         const arr = gfx.orbitLine.geometry.attributes.position.array;
@@ -1707,7 +1723,7 @@
       const label = labels[c.name];
       label.position.set(px, py, pz);
       const camDist = camera.position.distanceTo(label.position);
-      label.visible = showLabels && star3DBlend <= 0.55 && !(anchorName === c.name && camDist < sceneRadius[c.name] * 14);
+      label.visible = cometVisible && showLabels && star3DBlend <= 0.55 && !(anchorName === c.name && camDist < sceneRadius[c.name] * 14);
       label.material.opacity = hoverName === c.name ? 1.0 : 0.8;
     }
   }
@@ -2040,7 +2056,7 @@
   const _hpKm = [0, 0, 0];
   function updateHeliopause(anchor, dx, dy, dz) {
     if (!helioLine) return;
-    const showIt = star3DBlend < 0.65;
+    const showIt = !minimalInitialScene && star3DBlend < 0.65;
     helioLine.visible = showIt;
     helioLabel.visible = showIt && document.getElementById("tglLabels").checked;
     if (!showIt) return;
@@ -2552,6 +2568,7 @@
       sceneRadius[body.name] = r;
       body.group.position.set(_p[0] - dx, _p[1] - dy, _p[2] - dz);
       body.group.scale.setScalar(r);
+      body.group.visible = !minimalInitialScene || body.name === "Sun" || body.name === "Earth";
       let spin = 0;
       if (body.name === "Earth" && body.tiltGroup) {
         const yrNow = yearsFromJ2000();
@@ -2593,6 +2610,7 @@
       sceneRadius[sat.name] = r;
       sat.group.position.set(px, py, pz);
       sat.group.scale.setScalar(r);
+      sat.group.visible = !minimalInitialScene || sat.name === "Moon";
       sat.spinMesh.rotation.y = sat._th + Math.PI;   // 潮汐锁定: 同一面朝向行星(椭圆下跟随真近点角)
       updateSatOrbitRing(sat, pp);
     }
@@ -2720,18 +2738,40 @@
         line.geometry.attributes.position.needsUpdate = true;
         line.geometry.attributes.color.needsUpdate = true;
       }
+      if (sunOrbitLine) {
+        const arr = sunOrbitLine.geometry.attributes.position.array;
+        const colArr = sunOrbitLine.geometry.attributes.color.array;
+        for (let i = 0; i <= GEO_TRACE_SEGMENTS; i += 1) {
+          const off = i * 3;
+          _rel[0] = -geoTrace.earth[off];
+          _rel[1] = -geoTrace.earth[off + 1];
+          _rel[2] = -geoTrace.earth[off + 2];
+          mapPoint(_rel, _p);
+          arr[off] = _p[0]; arr[off + 1] = _p[1]; arr[off + 2] = _p[2];
+          const age = Math.abs(i / GEO_TRACE_SEGMENTS - 0.5) * 2;
+          const bright = 0.22 + 0.78 * Math.pow(1 - age, 1.7);
+          colArr[off] = bright; colArr[off + 1] = bright * 0.9; colArr[off + 2] = bright * 0.45;
+        }
+        sunOrbitLine.geometry.attributes.position.needsUpdate = true;
+        sunOrbitLine.geometry.attributes.color.needsUpdate = true;
+      }
       geoTrace.jd = jd;
       geoTrace.blend = scaleBlend;
     }
+    if (sunOrbitLine) {
+      sunOrbitLine.visible = visible;
+      sunOrbitLine.material.opacity = 0.82;
+    }
     for (const body of planetBodies) {
       const line = orbitLines[body.name];
-      line.visible = visible && body.name !== "Earth";
+      line.visible = visible && body.name !== "Earth" && !minimalInitialScene;
       line.material.opacity = body.name === selectedName ? 0.95 : 0.48;
     }
   }
 
   function updateOrbitLines(anchor, dx, dy, dz) {
     const visible = document.getElementById("tglOrbits").checked;
+    if (sunOrbitLine) sunOrbitLine.visible = false;
     if (referenceFrame === "geocentric") {
       updateGeocentricOrbitLines(visible);
       return;
@@ -2739,7 +2779,7 @@
     const TWO_PI = Math.PI * 2;
     for (const body of planetBodies) {
       const line = orbitLines[body.name];
-      line.visible = visible;
+      line.visible = visible && (!minimalInitialScene || body.name === "Earth");
       if (!visible) continue;
       const o = elementsAtJd(body.orbit_j2000, jd, _elT);
       const E0 = solveKepler(o.M, o.e);
@@ -2824,18 +2864,21 @@
       const p = scenePos[body.name];
       label.position.set(p[0], p[1], p[2]);
       const camDist = camera.position.distanceTo(label.position);
-      label.visible = show && !inter && !(body.name === anchorName && camDist < sceneRadius[body.name] * 14);
+      label.visible = show && !inter && (!minimalInitialScene || body.name === "Sun" || body.name === "Earth")
+        && !(body.name === anchorName && camDist < sceneRadius[body.name] * 14);
       label.material.opacity = body.name === hoverName ? 1.0 : 0.8;
     }
     for (const sat of SATELLITES) {
       const near = satNearParent(sat);
-      sat.group.visible = showSats;
-      sat.orbitLine.visible = showSats && showOrbits && near;
+      const coreMoon = minimalInitialScene && sat.name === "Moon";
+      const satVisible = showSats || coreMoon;
+      sat.group.visible = satVisible;
+      sat.orbitLine.visible = satVisible && showOrbits && near;
       const label = labels[sat.name];
       const p = scenePos[sat.name];
       label.position.set(p[0], p[1], p[2]);
       const camDist = camera.position.distanceTo(label.position);
-      label.visible = show && !inter && showSats && near &&
+      label.visible = show && !inter && satVisible && near &&
         !(sat.name === anchorName && camDist < sceneRadius[sat.name] * 14);
       label.material.opacity = sat.name === hoverName ? 1.0 : 0.8;
     }
@@ -3612,7 +3655,7 @@
   };
 
   /* ---------------- 太阳系全景雷达(军用风: 扫描线/余辉/对数距离环) ---------------- */
-  const RADAR = { on: true, full: false, size: 240, sweep: 0, glow: {}, static: null, hover: null };
+  const RADAR = { on: false, full: false, size: 240, sweep: 0, glow: {}, static: null, hover: null };
   const RADAR_RMAX = 55, RADAR_RIN = 0.35;
   function radarR(au, R) { return R * Math.log(1 + au / RADAR_RIN) / Math.log(1 + RADAR_RMAX / RADAR_RIN); }
   const _rxy = [0, 0, 0, 0];
@@ -6961,17 +7004,18 @@
     for (const c of SPACECRAFT) {
       if (!c.gfx) continue;
       const alive = jd >= c.launchJd;
-      c.gfx.spr.visible = alive;
-      c.gfx.line.visible = alive && showOrbits;
-      c.gfx.label.visible = alive && showLabelsCraft && star3DBlend <= 0.55;
+      const craftVisible = alive && (!minimalInitialScene || selectedName === c.name);
+      c.gfx.spr.visible = craftVisible;
+      c.gfx.line.visible = craftVisible && showOrbits;
+      c.gfx.label.visible = craftVisible && showLabelsCraft && star3DBlend <= 0.55;
       craftStateKm(c, jd, _cs);   // 速度仍需(姿态/信息卡); 位置用与锚点同帧的 worldKm
       const ckm = worldKm[c.name] || _cs.r;
       _rel[0] = ckm[0] - anchor[0]; _rel[1] = ckm[1] - anchor[1]; _rel[2] = ckm[2] - anchor[2];
       mapPoint(_rel, _p);
       c.gfx.spr.position.set(_p[0] - dx, _p[1] - dy, _p[2] - dz);
       c.gfx.label.position.copy(c.gfx.spr.position);
-      c.gfx.model.visible = alive;
-      if (alive) {
+      c.gfx.model.visible = craftVisible;
+      if (craftVisible) {
         placeCraftModel(c.gfx.model, c.gfx.spr, 0.05, 0.02, 2.2);
         const ep = scenePos.Earth;
         if (ep) {   // 高增益天线实时指向地球(真实姿态约束)
@@ -6982,7 +7026,7 @@
       scenePos[c.name] = [_p[0] - dx, _p[1] - dy, _p[2] - dz];
       sceneRadius[c.name] = 0.12;
       if (c.gfx0_dest) {   // 星际视角: 去向延长线(它正飞向哪颗星)
-        const show = alive && star3DBlend > 0.5;
+        const show = craftVisible && star3DBlend > 0.5;
         c.gfx0_dest.visible = show;
         c.gfx0_destLabel.visible = show;
         if (show) {
@@ -7125,6 +7169,7 @@
     setFocus(anchorName, true);
   }
   function setFocus(name, jump) {
+    if (name !== "Sun" && name !== "Earth" && name !== "Moon") minimalInitialScene = false;
     selectedName = name;
     dsSelected = null;
     starSelected = null;
@@ -7537,6 +7582,24 @@
       setEphemerisPanelVisible(false);
     }
   }
+  /* 只读三体坐标合同：所有返回数组均为新数组，避免验证代码意外修改渲染缓存。 */
+  function threeBodyStateKm(jdTt) {
+    if (!Number.isFinite(jdTt)) return null;
+    const sun = [0, 0, 0];
+    const emb = heliocentricKm(bodyByName.Earth.orbit_j2000, jdTt, [0, 0, 0]);
+    const moonGeo = moonGeoKm(jdTt, [0, 0, 0]);
+    const earth = [
+      emb[0] - moonGeo[0] * MU_MOON,
+      emb[1] - moonGeo[1] * MU_MOON,
+      emb[2] - moonGeo[2] * MU_MOON
+    ];
+    const moon = [
+      earth[0] + moonGeo[0],
+      earth[1] + moonGeo[1],
+      earth[2] + moonGeo[2]
+    ];
+    return { jdTt, sun, emb, earth, moon, moonGeo };
+  }
   if (typeof window !== "undefined") window.__ephemeris = {
     civilToJd,
     jdToCivil,
@@ -7553,7 +7616,24 @@
       const out = [0, 0, 0];
       return name === "Earth" ? earthHeliocentricKmAt(jdTt, out) : heliocentricKm(body.orbit_j2000, jdTt, out);
     },
-    moonGeocentricKm: (jdTt) => moonGeoKm(jdTt, [0, 0, 0])
+    moonGeocentricKm: (jdTt) => moonGeoKm(jdTt, [0, 0, 0]),
+    threeBodyStateKm,
+    threeBodyResidualKm: (jdTt) => {
+      const s = threeBodyStateKm(jdTt);
+      if (!s) return null;
+      return {
+        earthMoonBarycenter: [
+          s.earth[0] + s.moonGeo[0] * MU_MOON - s.emb[0],
+          s.earth[1] + s.moonGeo[1] * MU_MOON - s.emb[1],
+          s.earth[2] + s.moonGeo[2] * MU_MOON - s.emb[2]
+        ],
+        moonMinusEarth: [
+          s.moon[0] - s.earth[0] - s.moonGeo[0],
+          s.moon[1] - s.earth[1] - s.moonGeo[1],
+          s.moon[2] - s.earth[2] - s.moonGeo[2]
+        ]
+      };
+    }
   };
 
   /* ---------------- UI ---------------- */
@@ -8295,7 +8375,9 @@
     setupUi();
     updateSystem();
     // Initial camera and coordinate origin must describe the same reference frame.
-    const initialFocus = referenceAnchor();
+    // 首屏以地球为观察点，让太阳—地球—月球三体同时进入视野；
+    // 坐标原点仍由参考系决定（日心默认仍以太阳为原点）。
+    const initialFocus = minimalInitialScene ? "Earth" : referenceAnchor();
     setFocus(initialFocus, true);
     camera.position.set(scenePos[initialFocus][0], scenePos[initialFocus][1] - 26, scenePos[initialFocus][2] + 13);
     controls.target.set(...scenePos[initialFocus]);

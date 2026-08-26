@@ -81,7 +81,8 @@ Otherwise visitors keep getting the old cache. The new SW clears the previous ca
 
 ## Data sources
 
-- Planet, comet and asteroid orbital elements: JPL HORIZONS and JPL SBDB
+- Runtime planetary elements: JPL SSD, "Approximate Positions of the Planets," Table 1 (J2000 approximate elements); comet and asteroid data: JPL HORIZONS / SBDB. HORIZONS/DE441 is used for independent error checks, not as a live runtime data source.
+- Runtime lunar positions: the 60+60 term lunar series from Chapter 47 of Jean Meeus, *Astronomical Algorithms*.
 - All-sky map: NASA SVS Tycho Sky Map
 - Lunar terrain and textures: LRO
 - 3D rendering: three.js (MIT)

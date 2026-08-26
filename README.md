@@ -95,7 +95,8 @@ const VER = "v27-1";   // 改成 v27-2、v27-3……
 
 ## 数据来源
 
-- 行星、彗星、小行星轨道根数：JPL HORIZONS 与 JPL SBDB
+- 行星运行时根数：JPL SSD《Approximate Positions of the Planets》Table 1（J2000 近似根数）；彗星与小行星数据：JPL HORIZONS / SBDB；HORIZONS/DE441 用于独立误差对照，不是页面运行时的在线数据源
+- 月球运行时位置：Jean Meeus《Astronomical Algorithms》第 47 章月球 60+60 项近似历表
 - 全天星图：NASA SVS Tycho Sky Map
 - 月面地形与贴图：LRO
 - 3D 渲染：three.js（MIT）
