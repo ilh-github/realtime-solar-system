@@ -101,6 +101,13 @@ const VER = "v27-1";   // 改成 v27-2、v27-3……
 - 月面地形与贴图：LRO
 - 3D 渲染：three.js（MIT）
 
+## 时间合同与页面边界
+
+- 全站时间转换统一由 `ephemeris-time.js`（`window.EPHEMERIS_TIME`）提供：民用时间 → UTC JD → NASA/Espenak `ΔT` → TT JD；位置计算只接受 TT JD。
+- 主太阳系页面内部以 TT 运行；地面观星页（`sky.html`）输入/显示 UT，内部用同一模块转 TT；跨页面跳转（如"天象"按钮）在 URL 深链中传递 UTC JD。
+- 月面页（`moon.html`）当前为固定时刻摆景：太阳方向与光照不随时间推进，页面内已标注边界说明，非实时天象。
+- 发射场页（`launch_site.html`）为静态 GLB 模型预览，无天文时间依赖。
+
 ## 许可
 
 代码采用 MIT，见 [LICENSE](LICENSE)。

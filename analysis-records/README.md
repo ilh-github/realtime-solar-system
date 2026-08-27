@@ -11,3 +11,6 @@
 - `analysis-20260821-audit.md`：完整审计、本轮修复和遗留边界。
 - `analysis-20260821-core-three-body.md`：核心三体首屏收敛、日心/地心视轨和下一阶段交接。
 - `analysis-20260826-current-three-body.md`：2026-08-26 当前日期三体输出、数据依据与精度边界复核。
+- `analysis-20260826-regression-and-horizons.md`：2026-08-26 回归基线、时间合同、地心模式与首例当前日期 HORIZONS 对照。
+- `analysis-20260826-time-module-audit.md`：跨页面时间模块审计与统一方案（P1 第一步，只读）。
+- `analysis-20260826-precision-options.md`：太阳/地球/月球精度三方案评估（DE440 体积/许可/参考系/双轨制，只读）。

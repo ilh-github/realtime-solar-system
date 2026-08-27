@@ -22,12 +22,16 @@
   }
 
   /* ---------- 时间: 儒略日 / ΔT / 恒星时 ---------- */
-  function jdFromUnixMs(ms) { return ms / 86400000 + 2440587.5; }
-  function unixMsFromJd(jd) { return (jd - 2440587.5) * 86400000; }
-  function deltaTSec(jdUt) {                       // NASA 2005-2050 多项式, 邻域外平滑延用
-    const t = (jdUt - J2000) / 365.25;             // 年 - 2000
-    return 62.92 + 0.32217 * t + 0.005589 * t * t;
-  }
+  const jdFromUnixMs = W.EPHEMERIS_TIME ? W.EPHEMERIS_TIME.jdFromUnixMs : (ms) => ms / 86400000 + 2440587.5;
+  const unixMsFromJd = W.EPHEMERIS_TIME ? W.EPHEMERIS_TIME.unixMsFromJd : (jd) => (jd - 2440587.5) * 86400000;
+  /* ΔT 统一走 ephemeris-time.js (与主页面同一 NASA/Espenak 分段多项式)。
+   * 仅当模块缺失 (node VM 直载引擎) 时降级为 2005-2050 单段近似, 邻域外精度有限。 */
+  const deltaTSec = W.EPHEMERIS_TIME
+    ? W.EPHEMERIS_TIME.deltaTSecondsForJd
+    : (jdUt) => {
+        const t = (jdUt - J2000) / 365.25;
+        return 62.92 + 0.32217 * t + 0.005589 * t * t;
+      };
   function jdTT(jdUt) { return jdUt + deltaTSec(jdUt) / 86400; }
   function gmstDeg(jdUt) {                         // IAU 简式(度)
     const d = jdUt - J2000, T = d / 36525;

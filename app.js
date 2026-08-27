@@ -13,6 +13,9 @@
 (function () {
   "use strict";
   const { THREE, OrbitControls, EffectComposer, RenderPass, UnrealBloomPass, OutputPass } = window.VENDOR;
+  if (!window.EPHEMERIS_TIME) throw new Error("ephemeris-time.js 未加载: 时间转换函数不可用");
+  const { GREGORIAN_SWITCH_JD, civilToJd, jdToCivil, deltaTSecondsForYear, deltaTSecondsForJd,
+    utcJdToTtJd, ttJdToUtcJd, currentUtcJd, currentTtJd, parseDateToTtJd } = window.EPHEMERIS_TIME;
 
   const AU_KM = 149597870.7;
   const J2000 = 2451545.0;
@@ -2520,6 +2523,17 @@
     const eW = worldKm.Earth;
     eW[0] -= _mg[0] * MU_MOON; eW[1] -= _mg[1] * MU_MOON; eW[2] -= _mg[2] * MU_MOON;
     baryOff.Earth[0] = -_mg[0] * MU_MOON; baryOff.Earth[1] = -_mg[1] * MU_MOON; baryOff.Earth[2] = -_mg[2] * MU_MOON;
+    /* SPK 优先路径：DE440 精密星历可用时，覆盖地球、月球、地月质心位置 */
+    let spkApplied = false;
+    if (window.SPK_LOADER && window.SPK_LOADER.isAvailable()) {
+      const _spk = window.SPK_LOADER.getState(jd);
+      if (_spk) {
+        eW[0] = _spk.earth[0]; eW[1] = _spk.earth[1]; eW[2] = _spk.earth[2];
+        worldKm.Moon[0] = _spk.moon[0]; worldKm.Moon[1] = _spk.moon[1]; worldKm.Moon[2] = _spk.moon[2];
+        baryOff.Earth[0] = _spk.earth[0] - _spk.emb[0]; baryOff.Earth[1] = _spk.earth[1] - _spk.emb[1]; baryOff.Earth[2] = _spk.earth[2] - _spk.emb[2];
+        spkApplied = true;
+      }
+    }
     // 冥卫质心: 冥王星根数视作系统质心, 本体按质量比反向偏移(与卡戎构成双矮行星)
     const chSat = satByName.Charon;
     const rfC = satLocalDir(chSat, _v3a);
@@ -2535,6 +2549,8 @@
       if (!worldKm[sat.name]) worldKm[sat.name] = [0, 0, 0];
       const wS = worldKm[sat.name];
       if (sat.name === "Moon") {
+        /* SPK 已写入月球位置时跳过 Meeus；超范围或不可用时照常走 Meeus */
+        if (spkApplied) continue;
         wS[0] = p[0] + _mg[0]; wS[1] = p[1] + _mg[1]; wS[2] = p[2] + _mg[2];
         continue;
       }
@@ -7331,152 +7347,14 @@
     renderer.domElement.style.cursor = hoverName ? "pointer" : (sbxMode ? "crosshair" : "default");
   });
 
-  /* ---------------- 时间与日期 ---------------- */
-  const GREGORIAN_SWITCH_JD = 2299160.5; // 1582-10-15 00:00 UTC
+  /* ---------------- 时间与日期 ----------------
+   * civilToJd / jdToCivil / deltaT* / utcJdToTtJd / ttJdToUtcJd / currentUtc(Tt)Jd
+   * 已统一迁移到 ephemeris-time.js (window.EPHEMERIS_TIME), 在 IIFE 顶部解构引用。
+   * calendarMode / timeZoneOffsetHours 依赖页面控件, 保留在本文件。 */
   const DEEP_TIME_DAYS = 18262500;       // ±50,000 tropical years (365.25 d/yr)
   function calendarMode() {
     const select = document.getElementById("calendarSelect");
     return select && ["auto", "gregorian", "julian"].includes(select.value) ? select.value : "auto";
-  }
-  function usesGregorianCalendar(year, month, day, mode) {
-    if (mode === "gregorian") return true;
-    if (mode === "julian") return false;
-    return year > 1582 || (year === 1582 && (month > 10 || (month === 10 && day >= 15)));
-  }
-  function isLeapCivilYear(year, mode) {
-    const gregorian = usesGregorianCalendar(year, 3, 1, mode);
-    return gregorian
-      ? year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0)
-      : year % 4 === 0;
-  }
-  function daysInCivilMonth(year, month, mode) {
-    if (month === 2) return isLeapCivilYear(year, mode) ? 29 : 28;
-    return [4, 6, 9, 11].includes(month) ? 30 : 31;
-  }
-  function civilToJd(year, month, day, hour, minute, mode) {
-    let y = year, m = month;
-    if (m <= 2) { y -= 1; m += 12; }
-    const a = Math.floor(y / 100);
-    const b = usesGregorianCalendar(year, month, day, mode) ? 2 - a + Math.floor(a / 4) : 0;
-    return Math.floor(365.25 * (y + 4716)) + Math.floor(30.6001 * (m + 1)) + day + b - 1524.5
-      + (hour * 60 + minute) / 1440;
-  }
-  function jdToCivil(jdValue, mode) {
-    const z = Math.floor(jdValue + 0.5);
-    const f = jdValue + 0.5 - z;
-    const gregorian = mode === "gregorian" || (mode === "auto" && jdValue >= GREGORIAN_SWITCH_JD);
-    let a = z;
-    if (gregorian) {
-      const alpha = Math.floor((z - 1867216.25) / 36524.25);
-      a += 1 + alpha - Math.floor(alpha / 4);
-    }
-    const b = a + 1524;
-    const c = Math.floor((b - 122.1) / 365.25);
-    const d = Math.floor(365.25 * c);
-    const e = Math.floor((b - d) / 30.6001);
-    const dayWithFraction = b - d - Math.floor(30.6001 * e) + f;
-    let month = e < 14 ? e - 1 : e - 13;
-    let year = month > 2 ? c - 4716 : c - 4715;
-    let day = Math.floor(dayWithFraction);
-    let totalMinutes = Math.round((dayWithFraction - day) * 1440);
-    if (totalMinutes >= 1440) { totalMinutes = 0; day += 1; }
-    if (day > daysInCivilMonth(year, month, mode)) {
-      day = 1;
-      month += 1;
-      if (month > 12) { month = 1; year += 1; }
-    }
-    let hour = Math.floor(totalMinutes / 60);
-    const minute = totalMinutes % 60;
-    return { year, month, day, hour, minute };
-  }
-  // NASA/Espenak polynomial approximation of ΔT = TT - UT (seconds).
-  // It is sufficient for the visualizer's time-scale correction, but not a
-  // replacement for historical Earth-orientation observations.
-  function deltaTSecondsForYear(year) {
-    const y = year;
-    let u, t;
-    if (y < -500) {
-      u = (y - 1820) / 100;
-      return -20 + 32 * u * u;
-    }
-    if (y < 500) {
-      u = y / 100;
-      return 10583.6 - 1014.41 * u + 33.78311 * u * u - 5.952053 * u ** 3
-        - 0.1798452 * u ** 4 + 0.022174192 * u ** 5 + 0.0090316521 * u ** 6;
-    }
-    if (y < 1600) {
-      u = (y - 1000) / 100;
-      return 1574.2 - 556.01 * u + 71.23472 * u * u + 0.319781 * u ** 3
-        - 0.8503463 * u ** 4 - 0.005050998 * u ** 5 + 0.0083572073 * u ** 6;
-    }
-    if (y < 1700) {
-      t = y - 1600;
-      return 120 - 0.9808 * t - 0.01532 * t * t + t ** 3 / 7129;
-    }
-    if (y < 1800) {
-      t = y - 1700;
-      return 8.83 + 0.1603 * t - 0.0059285 * t * t + 0.00013336 * t ** 3 - t ** 4 / 1174000;
-    }
-    if (y < 1860) {
-      t = y - 1800;
-      return 13.72 - 0.332447 * t + 0.0068612 * t ** 2 + 0.0041116 * t ** 3
-        - 0.00037436 * t ** 4 + 0.0000121272 * t ** 5 - 0.0000001699 * t ** 6
-        + 0.000000000875 * t ** 7;
-    }
-    if (y < 1900) {
-      t = y - 1860;
-      return 7.62 + 0.5737 * t - 0.251754 * t ** 2 + 0.01680668 * t ** 3
-        - 0.0004473624 * t ** 4 + t ** 5 / 233174;
-    }
-    if (y < 1920) {
-      t = y - 1900;
-      return -2.79 + 1.494119 * t - 0.0598939 * t ** 2 + 0.0061966 * t ** 3 - 0.000197 * t ** 4;
-    }
-    if (y < 1941) {
-      t = y - 1920;
-      return 21.20 + 0.84493 * t - 0.076100 * t ** 2 + 0.0020936 * t ** 3;
-    }
-    if (y < 1961) {
-      t = y - 1950;
-      return 29.07 + 0.407 * t - t * t / 233 + t ** 3 / 2547;
-    }
-    if (y < 1986) {
-      t = y - 1975;
-      return 45.45 + 1.067 * t - t * t / 260 - t ** 3 / 718;
-    }
-    if (y < 2005) {
-      t = y - 2000;
-      return 63.86 + 0.3345 * t - 0.060374 * t ** 2 + 0.0017275 * t ** 3
-        + 0.000651814 * t ** 4 + 0.00002373599 * t ** 5;
-    }
-    if (y < 2050) {
-      t = y - 2000;
-      return 62.92 + 0.32217 * t + 0.005589 * t ** 2;
-    }
-    if (y < 2150) {
-      return -20 + 32 * ((y - 1820) / 100) ** 2 - 0.5628 * (2150 - y);
-    }
-    u = (y - 1820) / 100;
-    return -20 + 32 * u * u;
-  }
-  function deltaTSecondsForJd(jdValue) {
-    const p = jdToCivil(jdValue, "auto");
-    return deltaTSecondsForYear(p.year + (p.month - 0.5) / 12);
-  }
-  function utcJdToTtJd(jdUtc) {
-    return jdUtc + deltaTSecondsForJd(jdUtc) / 86400;
-  }
-  function currentUtcJd() {
-    return 2440587.5 + Date.now() / 86400000;
-  }
-  function currentTtJd() {
-    return utcJdToTtJd(currentUtcJd());
-  }
-  function ttJdToUtcJd(jdTt) {
-    let jdUtc = jdTt - deltaTSecondsForJd(jdTt) / 86400;
-    // One correction step handles the slow variation of ΔT across a date.
-    jdUtc = jdTt - deltaTSecondsForJd(jdUtc) / 86400;
-    return jdUtc;
   }
   function formatAstronomicalYear(year) {
     const abs = String(Math.abs(year)).padStart(4, "0");
@@ -7504,19 +7382,6 @@
     const parts = jdToCivil(ttJdToUtcJd(jdTt) + timeZoneOffsetHours() / 24, calendarMode());
     const zone = timeZoneOffsetHours() === 8 ? "CST" : "UTC";
     return `${formatCivilDate(parts)} ${zone}`;
-  }
-  function parseDateToTtJd(value, zoneHours, mode) {
-    const match = /^([+-]?\d{1,6})-(\d{2})-(\d{2})[T ](\d{2})(?::(\d{2}))?$/.exec(String(value || "").trim());
-    if (!match) return null;
-    const year = Number(match[1]), month = Number(match[2]), day = Number(match[3]);
-    const hour = Number(match[4]), minute = Number(match[5] || 0);
-    if (!Number.isInteger(year) || month < 1 || month > 12 || day < 1 || day > 31 || hour > 23 || minute > 59) return null;
-    if (mode === "auto" && year === 1582 && month === 10 && day >= 5 && day <= 14) return null;
-    const localJd = civilToJd(year, month, day, hour, minute, mode);
-    const roundTrip = jdToCivil(localJd, mode);
-    if (roundTrip.year !== year || roundTrip.month !== month || roundTrip.day !== day
-      || roundTrip.hour !== hour || roundTrip.minute !== minute) return null;
-    return utcJdToTtJd(localJd - zoneHours / 24);
   }
   function dateInputToJd(value) {
     return parseDateToTtJd(value, timeZoneOffsetHours(), calendarMode());
@@ -7585,6 +7450,11 @@
   /* 只读三体坐标合同：所有返回数组均为新数组，避免验证代码意外修改渲染缓存。 */
   function threeBodyStateKm(jdTt) {
     if (!Number.isFinite(jdTt)) return null;
+    /* SPK 优先路径：DE440 精密星历可用时直接使用，超范围则降级到近似模型 */
+    if (window.SPK_LOADER && window.SPK_LOADER.isAvailable()) {
+      const spkState = window.SPK_LOADER.getState(jdTt);
+      if (spkState) return spkState;
+    }
     const sun = [0, 0, 0];
     const emb = heliocentricKm(bodyByName.Earth.orbit_j2000, jdTt, [0, 0, 0]);
     const moonGeo = moonGeoKm(jdTt, [0, 0, 0]);
@@ -7633,8 +7503,17 @@
           s.moon[2] - s.earth[2] - s.moonGeo[2]
         ]
       };
-    }
+    },
+    /* SPK 高精度接口 */
+    spk: window.SPK_LOADER || null
   };
+
+  /* 自动检测 DE440s 内核：页面加载时尝试从 ./kernels/de440s.bsp 读取 */
+  if (window.SPK_LOADER) {
+    window.SPK_LOADER.tryLoadFromPath().then(ok => {
+      if (ok) console.log('[SPK] DE440s 内核加载成功');
+    });
+  }
 
   /* ---------------- UI ---------------- */
   const $ = (id) => document.getElementById(id);

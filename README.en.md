@@ -87,6 +87,13 @@ Otherwise visitors keep getting the old cache. The new SW clears the previous ca
 - Lunar terrain and textures: LRO
 - 3D rendering: three.js (MIT)
 
+## Time contract and page boundaries
+
+- All civil-time conversion is centralized in `ephemeris-time.js` (`window.EPHEMERIS_TIME`): civil time → UTC JD → NASA/Espenak `ΔT` → TT JD; position functions accept TT JD only.
+- The main solar-system page runs on TT internally; the ground sky page (`sky.html`) takes/displays UT and converts with the same module; cross-page links (e.g. the "天象" button) pass a UTC JD in the URL hash.
+- The moon surface page (`moon.html`) is currently a fixed-epoch diorama: sun direction and lighting do not advance with time; the page itself states this boundary. It is not a live sky.
+- The launch site page (`launch_site.html`) is a static GLB model preview with no astronomical time dependency.
+
 ## License
 
 The code is MIT-licensed, see [LICENSE](LICENSE).

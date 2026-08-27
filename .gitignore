@@ -20,3 +20,10 @@ Thumbs.db
 dist/
 /.idea/*
 /.playwright-cli/*
+
+# 星历目录：只提交 de441_compact.bin，其余均为大体积原始/中间产物
+kernels/*
+!kernels/de441_compact.bin
+
+# 工具内部目录
+.workbuddy/

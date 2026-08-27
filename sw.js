@@ -6,7 +6,7 @@
  * ========================================================================= */
 "use strict";
 
-const VER = "v64";                    // ← 发布新版本时,改这里
+const VER = "v68";                    // ← 发布新版本时,改这里
 const CACHE_PREFIX = "rt-solar-";
 const CACHE_NAME = CACHE_PREFIX + VER;
 
@@ -22,6 +22,10 @@ const PRECACHE = [
   "./sky.html",
   // —— 脚本 ——
   "./app.js?v=64",
+  "./ephemeris-time.js?v=64",
+  "./spk-parser.js?v=68",
+  "./spk-coord.js?v=68",
+  "./spk-loader.js?v=68",
   "./assets_textures.js?v=51",
   "./asteroids_real.js?v=51",
   "./glb_parser.js?v=51",
@@ -46,6 +50,7 @@ const PRECACHE = [
   "./visitors_data.js?v=51",
   "./vendor/three-bundle.min.js",
   // —— 清单与图像 ——
+  "./kernels/de441_compact.bin",
   "./manifest.json",
   "./og.png",
   "./icon-192.png",
