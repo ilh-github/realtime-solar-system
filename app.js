@@ -5328,8 +5328,8 @@
     refreshScaleButtons();
     playing = false;
     $("playBtn").textContent = "播放";   // 门打开即暂停，按钮文字与状态保持一致
-    jd = J2000;
-    INTRO.jdTarget = currentTtJd();
+    jd = currentTtJd();   // 刷新后首次默认当天实时
+    INTRO.jdTarget = jd;
     camera.position.set(5.4e7, -1.6e7, 2.4e7);
     controls.target.set(0, 0, 0);
     // 门上的今夜真话
@@ -5400,7 +5400,6 @@
       star3DBlend = 1;
       scaleBlend = 0;
       const k = clamp(INTRO.t / durStars, 0, 1);
-      jd = lerp(J2000, INTRO.jdTarget, easeIO(k * 0.45));   // 日期开始翻动
       camera.position.copy(INTRO.camA).multiplyScalar(1 - 0.06 * easeIO(k));
       if (INTRO.t >= durStars) { INTRO.state = "dive"; INTRO.t = 0; sfxWhoosh(); }
       return;
@@ -5410,7 +5409,6 @@
       const e1 = easeIO(k);
       star3DBlend = 1 - e1;                       // 星场收拢
       scaleBlend = easeIO(clamp((k - 0.25) / 0.6, 0, 1));   // 中段切入观感尺度, 轨道圈显形
-      jd = lerp(J2000, INTRO.jdTarget, 0.45 + 0.55 * easeIO(clamp(k / 0.7, 0, 1)));
       // 相机: 星场 → 太阳上方全景
       const kk = easeIO(clamp(k / 0.85, 0, 1));
       camera.position.set(
