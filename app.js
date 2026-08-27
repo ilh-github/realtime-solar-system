@@ -5327,6 +5327,7 @@
     scaleBlend = 0;
     refreshScaleButtons();
     playing = false;
+    $("playBtn").textContent = "播放";   // 门打开即暂停，按钮文字与状态保持一致
     jd = J2000;
     INTRO.jdTarget = currentTtJd();
     camera.position.set(5.4e7, -1.6e7, 2.4e7);
