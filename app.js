@@ -16,6 +16,8 @@
   if (!window.EPHEMERIS_TIME) throw new Error("ephemeris-time.js 未加载: 时间转换函数不可用");
   const { GREGORIAN_SWITCH_JD, civilToJd, jdToCivil, deltaTSecondsForYear, deltaTSecondsForJd,
     utcJdToTtJd, ttJdToUtcJd, currentUtcJd, currentTtJd, parseDateToTtJd } = window.EPHEMERIS_TIME;
+  // 干支/八字用官方 lunar-javascript 库(挂 window.Solar/Lunar/EightChar)
+  const LunarSolar = window.Solar || null;
 
   const AU_KM = 149597870.7;
   const J2000 = 2451545.0;
@@ -7382,6 +7384,20 @@
     const zone = timeZoneOffsetHours() === 8 ? "CST" : "UTC";
     return `${formatCivilDate(parts)} ${zone}`;
   }
+  // 干支四柱(八字): 以 TT 儒略日 -> 北京时间(auto 历法) -> 八字。节气时刻为北京时间, 故固定 +8h。
+  function ganzhiFromJd(jdTt) {
+    if (!LunarSolar) return null;
+    const parts = jdToCivil(ttJdToUtcJd(jdTt) + 8 / 24, "auto");
+    const ec = LunarSolar.fromYmdHms(parts.year, parts.month, parts.day, parts.hour, parts.minute, 0).getLunar().getEightChar();
+    return { year: ec.getYear(), month: ec.getMonth(), day: ec.getDay(), time: ec.getTime() };
+  }
+  function updateGanzhiText() {
+    const el = document.getElementById("ganzhiText");
+    if (!el) return;
+    const bz = ganzhiFromJd(jd);
+    if (!bz) { el.textContent = ""; return; }
+    el.textContent = `${bz.year} ${bz.month} ${bz.day} ${bz.time}`;
+  }
   function dateInputToJd(value) {
     return parseDateToTtJd(value, timeZoneOffsetHours(), calendarMode());
   }
@@ -8194,6 +8210,7 @@
 
     // HUD
     $("dateText").textContent = jdToDisplayText(jd);
+    updateGanzhiText();
     const jdEl = $("jdText");
     const deltaTNow = deltaTSecondsForJd(ttJdToUtcJd(jd));
     jdEl.textContent = `JD ${jd.toFixed(2)} TT`;

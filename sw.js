@@ -6,7 +6,7 @@
  * ========================================================================= */
 "use strict";
 
-const VER = "v68";                    // ← 发布新版本时,改这里
+const VER = "v69";                    // ← 发布新版本时,改这里
 const CACHE_PREFIX = "rt-solar-";
 const CACHE_NAME = CACHE_PREFIX + VER;
 
@@ -21,8 +21,9 @@ const PRECACHE = [
   "./moon.html",
   "./sky.html",
   // —— 脚本 ——
-  "./app.js?v=64",
+  "./app.js?v=65",
   "./ephemeris-time.js?v=64",
+  "./lunar.js?v=1",
   "./spk-parser.js?v=68",
   "./spk-coord.js?v=68",
   "./spk-loader.js?v=68",

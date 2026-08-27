@@ -14,3 +14,4 @@
 - `analysis-20260826-regression-and-horizons.md`：2026-08-26 回归基线、时间合同、地心模式与首例当前日期 HORIZONS 对照。
 - `analysis-20260826-time-module-audit.md`：跨页面时间模块审计与统一方案（P1 第一步，只读）。
 - `analysis-20260826-precision-options.md`：太阳/地球/月球精度三方案评估（DE440 体积/许可/参考系/双轨制，只读）。
+- `analysis-20260827-ganzhi-bazi.md`：干支/八字功能——选型决策（lunar-javascript vs tyme 等全生态对比）、八字算法口径、6 个踩坑记录与验证结果。
