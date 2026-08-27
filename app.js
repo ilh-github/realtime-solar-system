@@ -8209,14 +8209,17 @@
     if (snapRequest) saveSnapshot();
 
     // HUD
-    $("dateText").textContent = jdToDisplayText(jd);
+    $("dateCore").textContent = jdToDisplayText(jd);
     updateGanzhiText();
     const jdEl = $("jdText");
     const deltaTNow = deltaTSecondsForJd(ttJdToUtcJd(jd));
-    jdEl.textContent = `JD ${jd.toFixed(2)} TT`;
-    jdEl.title = `JD ${jd.toFixed(6)} TT · ΔT≈${deltaTNow.toFixed(1)} 秒`;
+    $("jdNum").textContent = jd.toFixed(2);
+    jdEl.title = `JD ${jd.toFixed(6)} TT · ΔT≈${deltaTNow.toFixed(1)} 秒\nJD 儒略日：自 -4712-01-12 起算的连续日数，J2000 = JD 2451545.0\nTT 地球时 Terrestrial Time：星历计算使用的均匀时间尺度，UT + ΔT = TT`;
     jdEl.dataset.jdTt = jd.toFixed(9);
     jdEl.dataset.deltaTSeconds = deltaTNow.toFixed(3);
+    // 同时刷新时区说明（仅 CST/UTC 两态）。可见文本留空避免占宽，仅 tooltip 显示中文含义。
+    const tzHint = $("dateTzHint");
+    if (tzHint) tzHint.textContent = "";
     const earthNow = worldKm.Earth;
     if (earthNow) {
       jdEl.dataset.earthXKm = earthNow[0].toFixed(3);
