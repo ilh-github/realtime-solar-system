@@ -7411,6 +7411,19 @@
       ? "地心：地球为原点，轨迹为前后一年视轨"
       : "日心：太阳为原点";
   }
+  function calendarDetailText(mode) {
+    if (mode === "gregorian") {
+      return "回溯格里高利历：全部日期按现代公历计算，相当于把现行历法向前回溯到所有年份，适合与现代记录对照，但不再还原古代真实使用的历法。";
+    }
+    if (mode === "julian") {
+      return "全程儒略历：全部日期按儒略历计算，还原 1582 年改革前真实使用的历法语境，适合研究早期日食记录、托勒密星表等历史天象。";
+    }
+    return "自动：1582-10-15 之前按儒略历、之后按格里高利历。JPL HORIZONS 等专业星历的默认约定。";
+  }
+  function updateCalendarHint() {
+    const detail = document.getElementById("calendarDetail");
+    if (detail) detail.textContent = calendarDetailText(calendarMode());
+  }
   function setEphemerisPanelVisible(show) {
     const panel = document.getElementById("ephemerisPanel");
     if (!panel) return;
@@ -7694,12 +7707,13 @@
       if (event.key === "Enter") { event.preventDefault(); applyDateInput(); }
     });
     $("timeZoneSelect").addEventListener("change", () => syncDateInput(true));
-    $("calendarSelect").addEventListener("change", () => syncDateInput(true));
+    $("calendarSelect").addEventListener("change", () => { syncDateInput(true); updateCalendarHint(); });
     for (const button of document.querySelectorAll("[data-frame]")) {
       button.addEventListener("click", () => setReferenceFrame(button.dataset.frame));
     }
     syncDateInput(true);
     updateReferenceUi();
+    updateCalendarHint();
     // 天体按钮(分类分组: 恒星·行星 / 矮行星·彗星 / 卫星)
     const addFocusBtn = (gridId, name, cn, accent, small) => {
       const btn = document.createElement("button");
