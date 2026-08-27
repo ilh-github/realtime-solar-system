@@ -190,7 +190,7 @@
   const planetBodies = bodies.filter((b) => b.name !== "Sun");
 
   /* ---------------- 状态 ---------------- */
-  let jd = J2000;
+  let jd = currentTtJd();   // 刷新后首次默认当天实时（也覆盖 ss_intro=off 跳过 intro 的情况）
   let anchorName = "Sun";
   let referenceFrame = "heliocentric";  // 坐标原点与镜头聚焦解耦: 日心 / 地心
   let selectedName = "Earth";
