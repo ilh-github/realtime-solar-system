@@ -965,7 +965,10 @@
         getDayShengXiao:function(){return LunarUtil.SHENGXIAO[this._p.dayZhiIndex+1];},
         getTimeShengXiao:function(){return LunarUtil.SHENGXIAO[this._p.timeZhiIndex+1];},
         getYearInChinese:function(){
-          var y = this._p.year+'';
+          // 修正: 负年份(公元前)跳过负号, 并天文年转历史年(0=公元前1年 -> 1, -2025=公元前2026 -> 2026)
+          var y = this._p.year;
+          if (y <= 0) y = 1 - y;
+          y += '';
           var s = '';
           var zero = '0'.charCodeAt(0);
           for(var i=0,j=y.length;i<j;i++){
