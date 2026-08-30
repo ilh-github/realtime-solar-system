@@ -27,3 +27,4 @@ kernels/*
 
 # 工具内部目录：memory 不提交；skills 提交仓库共享
 .workbuddy/memory/
+/build/solar-system-static/
