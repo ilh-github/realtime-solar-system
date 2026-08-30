@@ -7997,6 +7997,14 @@
       });
     }
     $("helpBtn").addEventListener("click", () => $("helpCard").classList.toggle("show"));
+    // 深时/普通模式说明弹窗
+    const modeModal = $("modeModal");
+    const openModeModal = () => modeModal.classList.add("show");
+    const closeModeModal = () => modeModal.classList.remove("show");
+    $("modeInfoBtn").addEventListener("click", openModeModal);
+    $("modeClose").addEventListener("click", closeModeModal);
+    modeModal.addEventListener("click", (e) => { if (e.target === modeModal) closeModeModal(); });
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape" && modeModal.classList.contains("show")) closeModeModal(); });
     $("gdNext").addEventListener("click", () => { gdStep + 1 >= GUIDE_STEPS.length ? endGuide() : guideShow(gdStep + 1); });
     $("gdSkip").addEventListener("click", endGuide);
     $("gdOpen").addEventListener("click", startGuide);

@@ -511,6 +511,39 @@
       canvas { touch-action: none; }              /* 拖拽投放/旋转在触屏可用(指针事件安全网) */
       input[type="range"] { height: 26px; }       /* 触控目标加大 */
     }
+    /* ---------- 模式说明弹窗 ---------- */
+    #modeModal {
+      position: fixed; inset: 0; z-index: 80; display: none;
+      align-items: center; justify-content: center; padding: 20px;
+      background: rgba(2, 5, 12, 0.62);
+    }
+    #modeModal.show { display: flex; }
+    #modeCard {
+      width: min(660px, 94vw); max-height: 88vh; overflow-y: auto;
+      background: rgba(12, 16, 32, 0.98);
+      border: 1px solid rgba(130, 170, 255, 0.30); border-radius: 16px;
+      padding: 20px 24px 22px; box-shadow: 0 24px 70px rgba(0, 0, 0, 0.55);
+      color: #cdd9f4; font-size: 13.5px; line-height: 1.75;
+      backdrop-filter: none; -webkit-backdrop-filter: none;
+    }
+    #modeCard h2 { margin: 0 0 4px; font-size: 18px; letter-spacing: .04em; color: #eaf1ff; }
+    #modeCard .sub { color: #8ea3d0; font-size: 12.5px; margin: 0 0 14px; }
+    #modeCard h3 { margin: 18px 0 8px; font-size: 14.5px; color: #bcd0ff; letter-spacing: .03em;
+      border-left: 3px solid var(--accent, #6ea8ff); padding-left: 9px; }
+    #modeCard table { width: 100%; border-collapse: collapse; margin: 6px 0 4px; font-size: 12.5px; }
+    #modeCard th, #modeCard td { text-align: left; padding: 7px 9px;
+      border-bottom: 1px solid rgba(130,170,255,.12); vertical-align: top; }
+    #modeCard th { color: #9fb4e6; font-weight: 600; }
+    #modeCard td:first-child { color: #cfe0ff; white-space: nowrap; }
+    #modeCard b { color: #eaf1ff; }
+    #modeCard .em { color: #ffd27a; }
+    #modeCard ul { margin: 6px 0 6px; padding-left: 20px; }
+    #modeCard li { margin: 4px 0; }
+    #modeCard code { background: rgba(120,160,255,.14); border: 1px solid rgba(130,170,255,.26);
+      border-radius: 4px; padding: 0 5px; font-size: 12px; }
+    #modeClose { float: right; margin: -4px -6px 0 0; width: 28px; height: 28px;
+      padding: 0; font-size: 14px; border-radius: 50%; }
+
   </style>
 </head>
 <body>
@@ -649,6 +682,7 @@
     <button id="todayBtn" title="跳到当前日期">今日</button>
     <button id="evtBtn" title="天象日历 · 1900-2100 全事件推算">天象</button>
     <button id="deepBtn" title="深时模式 · 公元前5000~公元5000:恒星自行改变星座形状, 地轴岁差更替北极星">深时</button>
+    <button id="modeInfoBtn" title="深时模式与普通模式有什么区别？点击查看说明">说明</button>
     <button id="cosmoBtn" title="星际视角 · 恒星按视差展开为真实三维星图, 飞离太阳系">星际</button>
     <button id="shareBtn" title="把当前时刻/聚焦/尺度/模式写进网址并复制 —— 可收藏可分享">分享</button>
     <button id="photoBtn" title="摄影模式: 隐藏全部界面, 快门存图 (P)">摄影</button>
@@ -822,6 +856,42 @@
     历史名场面 <kbd>▶ 连播</kbd> — 17 幕放映厅 · 日历可导出 .ics<br>
     聚焦木星细看 — 伽利略卫星影子实时投在盘面<br>
     光速巡航/地面观星/成就任务 — 都在左侧面板
+  </div>
+
+  <div id="modeModal" aria-hidden="true">
+    <div id="modeCard" role="dialog" aria-modal="true" aria-label="深时模式与普通模式说明">
+      <button id="modeClose" aria-label="关闭">×</button>
+      <h2>深时模式 与 普通模式</h2>
+      <p class="sub">同一个太阳系，两套"时间玩法"——位置算法其实是同一套。</p>
+
+      <h3>一句话区别</h3>
+      <p><b>普通模式</b>看"今天附近"：时间轴 ±100 年（约 1900–2100），滑块精细到 0.25 天，适合看日月食、天象日历、行星合冲。<br>
+      <b>深时模式</b>把时间轴拉长到整段真实星历：<span class="em">公元前 5000 ~ 公元 5000</span>，用来观察恒星自行、地轴岁差、北极星更替等上千年才显形的演化。</p>
+
+      <h3>对照表</h3>
+      <table>
+        <tr><th>维度</th><th>普通模式</th><th>深时模式</th></tr>
+        <tr><td>时间轴范围</td><td>±100 年</td><td>公元前 5000 ~ 公元 5000</td></tr>
+        <tr><td>滑块精度</td><td>0.25 天（可精确到某一天）</td><td>100 天（粗）</td></tr>
+        <tr><td>显示尺度</td><td>观感尺度（行星放大可见）</td><td>真实尺度（行星按真实相对大小/间距）</td></tr>
+        <tr><td>恒星名标签</td><td>隐藏</td><td>显示最亮 18 颗（便于认北极星更替）</td></tr>
+        <tr><td>长周期效应</td><td>几乎为零</td><td>恒星自行使星座变形、地轴岁差换北极星</td></tr>
+        <tr><td>自动切换</td><td>拖出 ±100 年自动进深时</td><td>不自动退回，保留深时范围</td></tr>
+      </table>
+
+      <h3>位置算法是同一套</h3>
+      <p>两种模式调用的是<strong>完全相同的计算函数</strong>，区别只在于喂进去的时刻 <code>jd</code> 落在哪里。深时<strong>不是</strong>"粗算/示意"模式，而是把同一套精确引擎采样到更远的时间：</p>
+      <ul>
+        <li><b>行星</b>：J2000 轨道根数的开普勒传播（同一段代码，两种模式都跑）。</li>
+        <li><b>月球 / 地球</b>：JPL <b>DE441</b> 真实星历（覆盖内全程高精度）。</li>
+        <li><b>卫星</b>：绕父体的椭圆轨道；<b>彗星</b>：专用轨道计算。</li>
+        <li><b>恒星自行 / 地轴岁差</b>：按"距 J2000 的年数"同一公式算，幅度随时间自动变化。</li>
+      </ul>
+      <p class="em">精度提示：行星的开普勒模型在千年尺度有固有长期误差（两种模式都跑这段代码，深时只是走到了误差显现的区间）；月球/地球在 DE441 覆盖内（±5000 年）始终高精度。黄赤交角/偏心率在覆盖内冻结为 J2000 真值，无示意扰动。</p>
+
+      <h3>深时 ≠ 星际视角</h3>
+      <p><b>深时</b>是<strong>时间维度</strong>拉长（看历史/未来演化）；<b>星际视角</b>是<strong>空间维度</strong>展开（恒星按视差显示真实三维距离、飞出太阳系）。两者可叠加使用。</p>
+    </div>
   </div>
 
   <script src="./vendor/three-bundle.min.js"></script>
