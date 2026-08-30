@@ -192,7 +192,12 @@
   const planetBodies = bodies.filter((b) => b.name !== "Sun");
 
   /* ---------------- 状态 ---------------- */
-  let jd = currentTtJd();   // 刷新后首次默认当天实时（也覆盖 ss_intro=off 跳过 intro 的情况）
+  // 时间轴范围对齐 DE441 真实星历覆盖(kernels/de441_compact.bin header 实测):
+  // jd_start = J2000 - 7000*365.25 = 公元前5000, jd_end = J2000 + 3000*365.25 = 公元5000。
+  // 全程落在真实星历内(超范围会降级 Meeus 外推), 左端早于夏朝(2070 BCE)。
+  const AXIS_MIN_DAYS = -7000 * 365.25;   // 公元前 5000 年
+  const AXIS_MAX_DAYS =  3000 * 365.25;   // 公元 5000 年
+  let jd = currentTtJd();   // 默认停留在今天实时
   let anchorName = "Sun";
   let referenceFrame = "heliocentric";  // 坐标原点与镜头聚焦解耦: 日心 / 地心
   let selectedName = "Earth";
@@ -430,11 +435,14 @@
   }
   const MU_MOON = 0.012150668;    // 月球/(地+月) 质量比 → 地月质心摆动
   const MU_CHARON = 0.1086;       // 卡戎/(冥+卡) 质量比
-  /* ---------------- 米兰科维奇循环(深时示意, ±5000 年内严格零影响) ----------------
+  /* ---------------- 米兰科维奇循环(深时示意, DE441 真实星历覆盖内严格零影响) ----------------
    * 黄赤交角: 22.1°~24.5°, 周期 ~41000 年(相位校准: 当前 23.44° 且正在减小, ~-47″/世纪);
-   * 偏心率: ~0.000-0.058, 十万年 + 40.5 万年双周期近似(Laskar 级数的两项粗描)。 */
+   * 偏心率: ~0.000-0.058, 十万年 + 40.5 万年双周期近似(Laskar 级数的两项粗描)。
+   * 覆盖 = 公元前5000~公元5000(即 yr ∈ [-7000, 3000]), 范围内冻结 J2000 真实值, 不叠加示意。 */
   function milankovitchBlend(yr) {
-    return clamp((Math.abs(yr) - 5000) / 10000, 0, 1);  // 历史年代不叠加展示用的轨道呼吸
+    if (yr >= -7000 && yr <= 3000) return 0;              // DE441 覆盖内: 零影响
+    const overshoot = yr < -7000 ? (-7000 - yr) : (yr - 3000);
+    return clamp(overshoot / 10000, 0, 1);                // 覆盖外才混入展示用示意
   }
   function obliquityDeg(yr) {
     const eps = 23.30 + 1.15 * Math.cos(Math.PI * 2 * (yr + 9450) / 41000);
@@ -448,11 +456,11 @@
   let reducedMotion = false;
   try { reducedMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches; } catch (e) { /* 桩环境 */ }
   /* ---------------- 深时模式 / 星际视角 ---------------- */
-  let deepTime = false;               // ±5 万年: 恒星自行 + 地轴岁差
+  let deepTime = true;                // 深时: 恒星自行 + 地轴岁差（默认开启: 时间轴 公元前5000 → 公元5000）
   let stars3D = false, star3DBlend = 0;   // 恒星三维化(视差真距离) + 飞离动画
   let skyModeN = 0, deepSkyBlend = 0;     // 星空三挡: 0全亮 1深空(弱化) 2黑寂(全部隐去)
   const SKY_DIM = [1, 0.38, 0], SKY_BG = [0.62, 0.15, 0], SKY_SPK = [1, 0.3, 0];
-  let tlMin = -36525, tlMax = 36525;  // 时间轴当前挡位(天)
+  let tlMin = AXIS_MIN_DAYS, tlMax = AXIS_MAX_DAYS;  // 时间轴当前挡位(天) — 深时默认范围: 公元前5000 → 公元5000
   const PRECESS_YR = 25772;           // 地轴岁差周期(年)
   function yearsFromJ2000() { return (jd - J2000) / 365.25; }
   /* 岁差后的地球极轴方向(黄道系单位矢量): 绕黄极以 25772 年周期西向回旋 */
@@ -6201,7 +6209,7 @@
     ["replay_all", "舰队史官", "三艘航天器的全程回放各启动一次"],
     ["interstellar", "离家", "开启星际视角"],
     ["star_fly", "星际旅人", "搜索并飞临任意一颗恒星"],
-    ["deeptime", "深时行者", "深时模式拨到一万年之外"],
+    ["deeptime", "深时行者", "深时模式拨到时间轴的尽头"],
     ["deepsky", "深空猎手", "查看任意深空天体图鉴"],
     ["light_cruise", "光的通勤", "光速巡航飞向冥王星"],
     ["helix", "螺旋行者", "在银河参考系里看太阳拖着全家狂奔"],
@@ -6238,7 +6246,7 @@
     { ach: "hohmann3", t: "霍曼挑战三星命中", go: () => { jd = nextHohmannWindow(jd + 2); const plan = hohmannPlan(jd); $("dvSlider").value = clamp(plan.dv, 2.5, 4.5).toFixed(2); $("dvVal").textContent = Number($("dvSlider").value).toFixed(2); } },
     { ach: "light_cruise", t: "以光速丈量太阳系", go: startLightCruise },
     { ach: "moon_land", t: "登陆月球开一圈车", go: () => { window.open("moon.html", "_blank"); } },
-    { ach: "deeptime", t: "深时行者: 去一万年后", go: () => { if (setDeepTimeRef) setDeepTimeRef(true); jd = J2000 + 12000 * 365.25; } }
+    { ach: "deeptime", t: "深时行者: 走到时间尽头", go: () => { if (setDeepTimeRef) setDeepTimeRef(true); jd = J2000 + 3000 * 365.25; } }
   ];
   function renderMissions() {
     const el = $("missionList");
@@ -7121,8 +7129,8 @@
   /* ---------------- 新手引导(可跳过, 首次自动) ---------------- */
   const GUIDE_STEPS = [
     { el: null, t: "欢迎来到实时太阳系", x: "这里没有一帧是摆拍——行星、卫星、彗星、探测器的每个位置都由真实历表与实测数据推算。花一分钟了解玩法, 随时可跳过。" },
-    { el: "timeBar", t: "时间是核心玩具", x: "播放/倒放/变速。<b>天象</b>=1900—2100 全事件日历(日食月食一键跳);<b>深时</b>=±5 万年看星座变形与北极星更替;<b>星际</b>=恒星展开真实距离, 飞出太阳系。" },
-    { el: "timelineWrap", t: "时间轴", x: "拖动滑块穿越 1900—2100。彩色圆点是大事件: 哈雷回归、阿波菲斯 2029 掠地、旅行者 1977 出发…悬停可看说明。深时模式可扩展到约 ±5 万年。" },
+    { el: "timeBar", t: "时间是核心玩具", x: "播放/倒放/变速。<b>天象</b>=1900—2100 全事件日历(日食月食一键跳);<b>深时</b>=公元前5000~公元5000 真实星历, 看岁差与北极星更替;<b>星际</b>=恒星展开真实距离, 飞出太阳系。" },
+    { el: "timelineWrap", t: "时间轴", x: "拖动滑块穿越 1900—2100。彩色圆点是大事件: 哈雷回归、阿波菲斯 2029 掠地、旅行者 1977 出发…悬停可看说明。深时模式可扩展到公元前5000~公元5000。" },
     { el: "panel", t: "聚焦·信息·显示", x: "点击任意天体按钮聚焦跟随, 信息卡显示实时数据;<b>真实/观感尺度</b>随时切换。显示选项里可关掉<b>小行星带/柯伊伯带</b>, 「星空」三挡里选<b>无星</b>即一片黑寂。悬停任意亮星可看它的简介。" },
     { el: "sbxBtn", t: "引力沙盒 · 玩法", x: "开启<b>投放模式</b>后: 在黄道面<b>按下</b>=定位置, <b>拖拽</b>=给速度(实时显示圆轨道/逃逸参考), <b>松开</b>=发射;轻点=直接圆轨道。探针受太阳+八大行星真实引力——扔到木星旁试试引力弹弓。" },
     { el: "launchBtn", t: "霍曼挑战 · 规则", x: "把探针送到火星: ①点<b>下个窗口</b>(自动对相位并代入理论 Δv) ②微调 Δv ③<b>发射</b>。按与火星最近距离评星, ★★★<300 万 km。窗口不对, 怎么加速都到不了——会合周期 780 天。" },
@@ -7352,7 +7360,7 @@
    * civilToJd / jdToCivil / deltaT* / utcJdToTtJd / ttJdToUtcJd / currentUtc(Tt)Jd
    * 已统一迁移到 ephemeris-time.js (window.EPHEMERIS_TIME), 在 IIFE 顶部解构引用。
    * calendarMode / timeZoneOffsetHours 依赖页面控件, 保留在本文件。 */
-  const DEEP_TIME_DAYS = 18262500;       // ±50,000 tropical years (365.25 d/yr)
+  // 日期输入可导航范围 = DE441 紧凑星历覆盖(与 AXIS_MIN/MAX_DAYS 一致): 公元前5000~公元5000
   function calendarMode() {
     const select = document.getElementById("calendarSelect");
     return select && ["auto", "gregorian", "julian"].includes(select.value) ? select.value : "auto";
@@ -7456,13 +7464,12 @@
       if (hint && (astroValue || (input && input.value))) hint.textContent = "日期格式或历法日期无效，请使用 YYYY-MM-DD HH:00。";
       return;
     }
-    if (nextJd < J2000 - DEEP_TIME_DAYS || nextJd > J2000 + DEEP_TIME_DAYS) {
-      if (hint) hint.textContent = "当前轨道模型支持约 ±5 万年；超出范围请改用专业精密星历。";
+    if (nextJd < J2000 + AXIS_MIN_DAYS || nextJd > J2000 + AXIS_MAX_DAYS) {
+      if (hint) hint.textContent = "当前星历覆盖约 公元前5000~公元5000；超出范围请改用专业精密星历。";
       return;
     }
     const normalRange = Math.abs(nextJd - J2000) <= 36525;
-    if (normalRange && deepTime && setDeepTimeRef) setDeepTimeRef(false);
-    if (!normalRange && !deepTime && setDeepTimeRef) setDeepTimeRef(true);
+    if (!normalRange && !deepTime && setDeepTimeRef) setDeepTimeRef(true);   // 仅在超出常规范围(±100年)时自动开深时; 不自动关, 以保留深时 公元前5000~公元5000 导航范围
     jd = clamp(nextJd, J2000 + tlMin, J2000 + tlMax);
     if (hint) hint.textContent = "天文年：1 BC = 0000，200 BC = -0199。输入时间按所选时区解释，内部以 ΔT 近似转换为 TT。";
     playing = false;
@@ -7782,18 +7789,18 @@
       if (!hasActive && g.children[2]) g.children[2].classList.add("active");
     }
     buildSpeedButtons();
-    // 深时模式: 时间轴换挡 ±5 万年
-    function setDeepTime(on) {
+    // 深时模式: 时间轴换挡 ±5000 年
+    function setDeepTime(on, animateScale = true) {
       deepTime = on;
       $("deepBtn").classList.toggle("active", on);
       document.getElementById("timelineWrap").classList.toggle("deep", on);
-      if (on) animateScaleTo(0);        // 深时基于真实尺度运转
-      tlMin = on ? -18262500 : -36525;
-      tlMax = on ? 18262500 : 36525;
+      if (on && animateScale) animateScaleTo(0);   // 深时基于真实尺度运转（首屏不强制, 保留观感尺度惊艳感）
+      tlMin = on ? AXIS_MIN_DAYS : -36525;
+      tlMax = on ? AXIS_MAX_DAYS : 36525;
       const sl = $("timeSlider");
       sl.min = tlMin; sl.max = tlMax; sl.step = on ? 100 : 0.25;
       $("tlLabels").innerHTML = on
-        ? "<span>-48000</span><span>-23000</span><span>公元2000</span><span>+27000</span><span>+52000</span>"
+        ? "<span>前5000</span><span>前2500</span><span>公元元年</span><span>2500</span><span>5000</span>"
         : "<span>1900</span><span>1950</span><span>2000</span><span>2050</span><span>2100</span>";
       if (!on) {
         jd = clamp(jd, J2000 + tlMin, J2000 + tlMax);
@@ -7803,6 +7810,7 @@
       $("deepHint").classList.toggle("show", on);
     }
     setDeepTimeRef = setDeepTime;
+    setDeepTime(true, false);   // 默认开启深时(范围=公元前5000→公元5000); 首屏保留观感尺度, 不强制真实尺度
     $("deepBtn").addEventListener("click", () => setDeepTime(!deepTime));
     // 星际视角: 恒星按视差展开为真实三维, 相机飞离太阳系
     $("sbxBtn").addEventListener("click", () => setSandboxMode(!sbxMode));
@@ -8142,7 +8150,7 @@
 
     if (playing && !draggingTimeline) {
       jd += daysPerSecond * timeDirection * dt;
-      jd = clamp(jd, J2000 + tlMin, J2000 + tlMax);   // 钳制跟随挡位(深时 ±5 万年)
+      jd = clamp(jd, J2000 + tlMin, J2000 + tlMax);   // 钳制跟随挡位(深时 公元前5000~公元5000)
     }
     tickScaleAnim(dt);
     tickTour(dt);
@@ -8247,7 +8255,7 @@
       } else {
         $("lyWrap").style.display = "none";
       }
-      if (deepTime && Math.abs(yearsFromJ2000()) > 10000) award("deeptime");
+      if (deepTime && Math.abs(yearsFromJ2000()) > 2500) award("deeptime");
       {  // 行星大气渐变: 凑近金星/火星/土卫六时的雾感色调
         const ATMO = { Venus: "232,220,178", Mars: "205,124,82", Titan: "214,152,64" };
         let ak = 0, acol = null;

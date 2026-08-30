@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="实时太阳系 · 离线三维天文馆:J2000 历表驱动的行星/卫星/彗星实时位置, 日月食与天象日历, 深时模式(±5 万年恒星自行与岁差), 星际视角三维星图, N 体引力沙盒与霍曼转移挑战, 旅行者号真实轨迹回放, 月球车驾驶。">
+  <meta name="description" content="实时太阳系 · 离线三维天文馆:J2000 历表驱动的行星/卫星/彗星实时位置, 日月食与天象日历, 深时模式(公元前5000~公元5000 真实星历·恒星自行与岁差), 星际视角三维星图, N 体引力沙盒与霍曼转移挑战, 旅行者号真实轨迹回放, 月球车驾驶。">
   <meta name="theme-color" content="#04060d">
   <link rel="manifest" href="./manifest.json">
   <meta property="og:title" content="实时太阳系 · Solar System">
@@ -648,7 +648,7 @@
     <button id="resetBtn" title="J2000 历元 · 2000-01-01 12:00 TT = JD 2451545.0&#10;IAU 标准时间原点：行星/卫星轨道根数、星表坐标的基准时刻">J2000</button>
     <button id="todayBtn" title="跳到当前日期">今日</button>
     <button id="evtBtn" title="天象日历 · 1900-2100 全事件推算">天象</button>
-    <button id="deepBtn" title="深时模式 · ±5 万年:恒星自行改变星座形状, 地轴岁差更替北极星">深时</button>
+    <button id="deepBtn" title="深时模式 · 公元前5000~公元5000:恒星自行改变星座形状, 地轴岁差更替北极星">深时</button>
     <button id="cosmoBtn" title="星际视角 · 恒星按视差展开为真实三维星图, 飞离太阳系">星际</button>
     <button id="shareBtn" title="把当前时刻/聚焦/尺度/模式写进网址并复制 —— 可收藏可分享">分享</button>
     <button id="photoBtn" title="摄影模式: 隐藏全部界面, 快门存图 (P)">摄影</button>
@@ -771,7 +771,7 @@
   </div>
 
   <div id="hintStack">
-  <div id="deepHint" class="modeHint glass">深时模式:±5 万年 —— 恒星按真实自行漂移, 星座缓慢变形;地轴 25772 年岁差, <b>约 1.2 万年后织女星接任北极星</b>。±5000 年内保持 JPL 近似轨道模型, 更早年代为示意外推;<b>米兰科维奇循环</b>: 黄赤交角 4.1 万年摆动(22.1°~24.5°), 地球轨道偏心率十万年"呼吸"。</div>
+  <div id="deepHint" class="modeHint glass">深时模式:公元前5000~公元5000 —— 恒星按真实自行漂移, 星座缓慢变形;地轴 25772 年岁差, <b>约 1.2 万年后织女星接任北极星</b>。本范围内采用 JPL DE441 真实星历, 轨道黄赤交角/偏心率冻结 J2000 真实值(无示意扰动);<b>米兰科维奇循环</b>(黄赤交角 4.1 万年摆动 22.1°~24.5°、偏心率十万年"呼吸")仅在超出星历覆盖时作示意外推。</div>
   <div id="encHint" class="modeHint glass"><span id="encText"></span> <button id="encGo" style="margin-left:8px;padding:2px 10px;font-size:12px">进剧场 ▶</button><button id="encClose" style="margin-left:4px;padding:2px 8px;font-size:12px">×</button></div>
   <div id="cosmoHint" class="modeHint glass">星际视角:恒星按依巴谷视差展开真实距离(对数压缩), 滚轮拉远飞出太阳系 —— <b>看太阳缩成群星中的一颗黄矮星</b>。</div>
   </div>
@@ -815,7 +815,7 @@
     <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd><kbd>Q</kbd><kbd>E</kbd> 飞行(星际下即光年巡航)· <kbd>Shift</kbd> 加速<br>
     <kbd>1</kbd>–<kbd>9</kbd> 快速聚焦 · 时间轴圆点 — 大事件<br>
     真实尺度贴近地球 — 七座发射场信标, 点击进剧场;土星五号入轨后自动奔月<br>
-    天象=日历 · 深时=±5万年 · 星际=飞出太阳系<br>
+    天象=日历 · 深时=前5000~后5000 · 星际=飞出太阳系<br>
     右下雷达可点击聚焦 · <kbd>⤢</kbd> 全屏 <kbd>Esc</kbd> 收回<br>
     搜"奥陌陌" — 星际访客双曲轨道 · 小行星带 19,139 颗全真实<br>
     沙盒三枚火箭 — 长五/泰坦IIIE/土星五号, 从塔架看到入轨<br>
